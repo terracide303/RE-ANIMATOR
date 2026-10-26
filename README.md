@@ -7,6 +7,24 @@ no longer supports on macOS. Keep your gear out of the e-waste.
 
 > **Beta (0.1).** Unofficial; not made, supported or endorsed by Native Instruments. Use at your own risk.
 
+## In plain words
+
+**What it does.** Maschine 3 still has the MK1 support built in; Native Instruments switched it off. RE-ANIMATOR:
+
+1. **makes a copy** of Maschine 3 and switches the MK1 support back on in that copy (two small changes);
+2. **starts a small helper** (MK1 Revive by andy83) that talks to the MK1 over USB: Maschine's screens on the MK1, and
+   the pads, buttons and knobs back to Maschine;
+3. **opens the copy.** When you quit Maschine, the helper stops too.
+
+**Why it is safe.**
+
+* **Your original Maschine 3 is never touched.** It is only read; everything happens in the copy.
+* **Your MK1 is not changed.** No firmware is written; it is only controlled over USB, just like NI's own software
+  does.
+* **It refuses instead of guessing.** If your Maschine version doesn't look exactly as expected, nothing is changed.
+* **Fully undoable.** *Clean* deletes the copy; delete the app and everything is as before.
+* **Open:** all the code is here to read.
+
 ## How it works
 
 * It makes a **patched copy** of your installed Maschine 3 in its own folder (by default `~/Applications/RE-ANIMATOR`).
