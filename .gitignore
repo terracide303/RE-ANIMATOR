@@ -1,0 +1,25 @@
+# Whitelist: only what RE-ANIMATOR ships. Everything else here (patched Maschine copies, research notes, logs,
+# reference pictures, hand-offs) stays local and never goes to GitHub: no Native Instruments files in this repo.
+/*
+!/.gitignore
+!/README.md
+!/build.sh
+!/reanimator/
+/reanimator/*
+!/reanimator/reanimator_app.py
+!/reanimator/patch_maschine3_macos.py
+!/reanimator/bridge.py
+!/reanimator/mk1usb.py
+!/reanimator/assets/
+!/reanimator/vendor/
+!/docs/
+/docs/*
+!/docs/screenshot.png
+!/docs/licenses/
+!/design/
+/design/*
+!/design/reanimator-cover.png
+!/design/reanimator-repair-badge.png
+!/design/reanimator-ewaste-ring.png
+__pycache__/
+.DS_Store
