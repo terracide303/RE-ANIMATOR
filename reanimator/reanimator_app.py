@@ -156,6 +156,7 @@ class App:
         self.app_status, self.app_detail = self.row(o, 0, 'Maschine 3', self.pick_app)
         self.dest_status, self.dest_detail = self.row(o, 2, 'Copy goes to', self.pick_dest)
         self.bridge_status, self.bridge_detail = self.row(o, 4, 'MK1 bridge', self.pick_bridge)
+        self.bridge_choose = self.last_choose
         bar = ttk.Frame(o)
         bar.grid(row=7, column=0, columnspan=3, sticky='w', pady=(12, 0))
         ttk.Button(bar, text='Clean…', command=self.clean).pack(side='left')
@@ -171,7 +172,8 @@ class App:
         status.grid(row=r, column=1, sticky='we', padx=10, pady=(8, 0))
         detail = tk.Label(o, text='', foreground=GREY, font=('Helvetica', 11), anchor='w', justify='left', wraplength=460)
         detail.grid(row=r + 1, column=1, sticky='we', padx=10)
-        ttk.Button(o, text='Choose…', command=pick).grid(row=r, column=2, sticky='ne', pady=(8, 0))
+        self.last_choose = ttk.Button(o, text='Choose…', command=pick)
+        self.last_choose.grid(row=r, column=2, sticky='ne', pady=(8, 0))
         return status, detail
 
     def toggle_options(self):
@@ -235,6 +237,8 @@ class App:
 
     def idle(self):
         self.start_button.state(['!disabled'])
+        if hasattr(self, 'bridge_choose'):
+            self.set_bridge(self.bridge.path if self.bridge else None)   # greys the bridge out for a non-MK1
         self.show_summary()
         if not self.app_path:
             self.tell('Maschine 3 was not found. Open Options to choose it.', BAD)
@@ -273,10 +277,20 @@ class App:
             self.show_summary()
 
     def bridge_button(self):
-        """the bridge button says what it will do: Stop bridge while it runs, Start bridge otherwise"""
+        """the bridge button says what it will do: Stop bridge while it runs, Start bridge otherwise. The bridge
+        is only for the MK1: for another controller it is greyed out (but a bridge left running can be stopped)"""
         running = B.bridge_running()
-        self.stop_button.config(text='Stop bridge' if running else 'Start bridge',
+        mk1 = not hasattr(self, 'model') or self.model_key() in NEEDS_BRIDGE
+        self.stop_button.config(text='Stop bridge' if running else ('Start bridge' if mk1 else 'Bridge: MK1 only'),
                                 command=self.stop_bridge if running else self.start_bridge)
+        self.stop_button.state(['!disabled'] if (running or mk1) else ['disabled'])
+        if hasattr(self, 'bridge_choose'):
+            self.bridge_choose.state(['!disabled'] if mk1 else ['disabled'])
+            self.bridge_status.config(foreground='black' if mk1 else GREY)
+            self.bridge_detail.config(foreground=GREY)
+            if not mk1:
+                self.bridge_detail.config(text='Only for the Maschine MK1: the %s is driven by NI\'s own agent.'
+                                               % self.model.get())
 
     def start_bridge(self):
         if not self.bridge:
@@ -304,9 +318,9 @@ class App:
             self.bridge_detail.config(text='')
             return
         self.bridge_status.config(text='✓  Running' if B.bridge_running() else '✓  Ready', foreground=GOOD)
-        self.bridge_button()
         bundled = os.path.abspath(path) in (os.path.abspath(B.VENDOR_APP), os.path.abspath(B.VENDOR), os.path.abspath(B.VENDOR_DEV))
         self.bridge_detail.config(text='Included: MK1 Revive by andy83' if bundled else path.split('/Contents/')[0])
+        self.bridge_button()       # last: for a controller other than the MK1 it greys all of the above out
 
     def pick_app(self):
         path = filedialog.askopenfilename(initialdir='/Applications', title='Choose Maschine 3.app')
