@@ -51,7 +51,7 @@ def detect_controllers():
         if v and pr and int(v.group(1)) == 0x17CC and int(pr.group(1)) in USB_IDS:
             found.append(USB_IDS[int(pr.group(1))])
     return found
-VERSION = '0.4 beta'
+VERSION = '0.4.1 beta'
 APP_LOG = os.path.expanduser('~/Library/Logs/RE-ANIMATOR-app.log')
 
 
