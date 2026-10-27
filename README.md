@@ -91,8 +91,7 @@ and stopping the bridge), `mk1usb.py` (the one MK1 access RE-ANIMATOR makes itse
 
 ## Credits
 
-* **MK1 bridge: MK1 Revive by andy83** — <https://github.com/andy83-projects/maschine-mk1-revive>. Included with the
-  author's permission (`docs/licenses/MK1-Revive.md`).
+* **MK1 bridge: MK1 Revive by andy83** — <https://github.com/andy83-projects/maschine-mk1-revive>. 
 * **libusb** (LGPL-2.1) — <https://libusb.info>.
 * Artwork: our own (`docs/licenses/artwork.md`).
 
