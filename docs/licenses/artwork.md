@@ -15,7 +15,7 @@ RECYCLING" stock illustration). They are reference only: not in the app, not to 
 ## The MK1 screen animation (bridge/anim/make_anim.py)
 
 All of it is our own drawing, inspired by the film *Re-Animator*; nothing is traced or cut from a poster, cover or
-still. **The scientist portrait is drawn in Jeffrey Combs's likeness: Dennis reported on 2026-10-27 that Jeffrey
-Combs said this is fine.** Keep a copy of that message in this folder. His permission covers his likeness only: the
-film's posters and DVD covers belong to their artists and publishers and are not used.
+still. A scientist portrait in Jeffrey Combs's likeness (Dennis reported on 2026-10-27 that Jeffrey Combs said this is fine)
+was tried and **removed the same day**: no likeness is in the animation now. The film's posters and DVD covers
+belong to their artists and publishers and are not used.
 

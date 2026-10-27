@@ -46,4 +46,8 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
 * **2026-10-27 · The split lands where the logos drip:** each copy moves and shrinks from the big logo's exact place to
   the small logo's exact place (it landed 10 px lower as a shrunk picture and was then redrawn, which made the E look
   broken when the drips started). The morgue scene is gone (Dennis: it looked dumb).
+* **2026-10-27 · Sharp letters, a clean E, a spraying needle.** All text is drawn without anti-aliasing and the small
+  logos use Avenir Next Bold 24 instead of Heavy 22, whose E closed up into a lump on the 255x64 screens. In the cat
+  scene the reagent now sprays from the needle across both screens to the cat. The scientist scene was tried and
+  removed.
 

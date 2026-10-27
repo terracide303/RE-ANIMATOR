@@ -9,6 +9,9 @@ from PIL import Image, ImageDraw, ImageFont
 W, H, FPS = 255, 64, 20
 random.seed(7)
 FONT = "/System/Library/Fonts/Avenir Next.ttc"
+# Sharp pixels for every letter: the MK1's 255x64 screens turned anti-aliased edges into grey smears, and with the
+# heavy weight the small logo's E became a lump with notches (Dennis, 2026-10-27).
+ImageDraw.ImageDraw.fontmode = "1"
 def g(v):  # MK1 grey: 5-bit level 0..31 -> 0..255
     return int(v * 255 / 31)
 
@@ -93,7 +96,7 @@ def heart_line(d, t, y=59):
     d.line(pts, fill=g(16))
 
 
-SCENE_SECS = {"rufus": 8.0, "scientist": 7.0, "lab": 6.0}
+SCENE_SECS = {"rufus": 8.0, "lab": 6.0}
 
 
 def cat(d, cx, base, pose, glow):
@@ -144,6 +147,20 @@ def scene_rufus(c, t):
         syr = Image.new("L", (W, H), 0)
         syringe(ImageDraw.Draw(syr), 10 + int(30 * min(1, u * 2)), 30, 1 - max(0, u - 0.4) / 0.6, max(0, u - 0.4) / 0.6)
         c.paste(syr.transpose(Image.FLIP_LEFT_RIGHT), (W, 0))                    # needle pointing at the cat
+        if u > 0.4:                                                              # the reagent sprays from the needle
+            x0 = 10 + int(30 * min(1, u * 2))
+            tip = (W + (W - 1 - (x0 + 132)), 30)                                 # the needle's tip, after the flip
+            target = (150, 42)                                                   # the cat's head on the left screen
+            push = (u - 0.4) / 0.6
+            rnd = random.Random(11)
+            for n in range(26):                                                  # droplets along an arc, each with its own start
+                ph = (push * 2.2 + rnd.random()) % 1
+                x = tip[0] + (target[0] - tip[0]) * ph + rnd.uniform(-3, 3)
+                y = tip[1] + (target[1] - tip[1]) * ph - 10 * math.sin(ph * math.pi) + rnd.uniform(-2, 2) + 6 * ph * ph
+                r = 1 if n % 3 else 0
+                d.ellipse([x - r, y - r, x + r, y + r], fill=g(31) if n % 2 else g(22))
+            jet = int(30 * min(1, push * 3))                                     # and a short jet right at the tip
+            d.line([tip[0], tip[1], tip[0] - jet, tip[1] + 1], fill=g(31))
     if 4.0 < t < 4.4:                                                            # the jolt
         return "flash"
     if alive:
@@ -151,71 +168,6 @@ def scene_rufus(c, t):
         shake = int(2 * math.sin(t * 40)) if t < 5.5 else 0
         cat(d, 120 + shake, 54 - jump, 1, int(t * 6) % 2 == 0)
         ImageDraw.Draw(c).text((W + 40, 18), "HISSS!", font=BIG2, fill=g(31))
-    return None
-
-
-def scene_scientist(c, t):
-    """a pixel portrait of the reanimator, in Jeffrey Combs's likeness with his permission (docs/licenses/artwork.md):
-    our own drawing, not traced from any poster or cover. Dark slicked hair, round glasses that glint, an intense
-    stare, shirt and tie under the lab coat; he raises a tube of glowing reagent, its mist rolls over to the right
-    screen, where the name of the stuff forms; then a thin smile."""
-    d = ImageDraw.Draw(c)
-    cx, top = 64, 4
-    # lab coat, shirt, tie
-    d.polygon([(cx - 40, 64), (cx - 32, 47), (cx - 12, 42), (cx + 12, 42), (cx + 32, 47), (cx + 40, 64)], fill=g(26))
-    d.polygon([(cx - 12, 42), (cx, 64), (cx + 12, 42)], fill=g(30))             # white shirt
-    d.polygon([(cx - 3, 44), (cx + 3, 44), (cx + 4, 64), (cx - 4, 64)], fill=g(3))   # dark tie
-    d.polygon([(cx - 3, 44), (cx + 3, 44), (cx, 48)], fill=g(6))                # the knot
-    d.line([cx - 12, 42, cx - 6, 58], fill=g(12)); d.line([cx + 12, 42, cx + 6, 58], fill=g(12))   # lapels
-    d.rectangle([cx - 5, 35, cx + 5, 43], fill=g(19))                           # neck
-    # a long, lean face
-    d.ellipse([cx - 12, top + 6, cx + 12, top + 36], fill=g(21))
-    d.ellipse([cx - 14, top + 16, cx - 10, top + 23], fill=g(19)); d.ellipse([cx + 10, top + 16, cx + 14, top + 23], fill=g(19))
-    # dark hair, slicked back with a side parting, a lighter edge so it shows on a dark screen
-    d.chord([cx - 14, top + 1, cx + 14, top + 19], 180, 360, fill=g(7))
-    d.polygon([(cx - 14, top + 10), (cx - 13, top + 4), (cx + 2, top + 2), (cx + 14, top + 9)], fill=g(7))
-    d.arc([cx - 14, top + 1, cx + 14, top + 19], 190, 350, fill=g(16))
-    d.line([cx - 5, top + 2, cx - 9, top + 9], fill=g(14))                      # the parting
-    # brows, low and straight: the stare
-    d.line([cx - 10, top + 14, cx - 2, top + 15], fill=g(5), width=2); d.line([cx + 2, top + 15, cx + 10, top + 14], fill=g(5), width=2)
-    glint = (t % 1.7) < 0.2
-    for ex in (cx - 6, cx + 6):                                                 # round glasses
-        d.ellipse([ex - 5, top + 15, ex + 5, top + 24], outline=g(30), fill=g(31) if glint else g(23))
-        if not glint:
-            d.ellipse([ex - 1, top + 18, ex + 1, top + 20], fill=g(2))          # pupils, fixed on you
-    d.line([cx - 1, top + 19, cx + 1, top + 19], fill=g(30))
-    d.line([cx - 11, top + 19, cx - 14, top + 18], fill=g(30)); d.line([cx + 11, top + 19, cx + 14, top + 18], fill=g(30))
-    d.line([cx, top + 22, cx - 1, top + 28], fill=g(13)); d.point([cx + 1, top + 28], fill=g(13))   # nose
-    if t > 4.8:                                                                  # a thin, cold smile
-        d.arc([cx - 6, top + 26, cx + 6, top + 33], 15, 165, fill=g(6))
-    else:
-        d.line([cx - 4, top + 31, cx + 4, top + 31], fill=g(8))
-    # the arm raises the tube
-    lift = min(1, t / 1.2)
-    hx, hy = 122, int(60 - 28 * lift)
-    d.line([cx + 30, 54, hx - 4, hy + 8], fill=g(26), width=7)
-    d.ellipse([hx - 6, hy, hx + 4, hy + 10], fill=g(21))
-    tx, ttop = hx - 1, hy - 28
-    d.rectangle([tx - 3, ttop, tx + 3, hy + 4], outline=g(31))
-    d.rectangle([tx - 2, ttop + 6, tx + 2, hy + 3], fill=g(31))                 # glowing reagent
-    for b in range(3):
-        by = hy + 2 - int(((t * 1.3 + b * 0.31) % 1) * (hy - ttop - 4))
-        d.point([tx - 1 + b, by], fill=0)
-    # the mist rolls over to the right screen
-    reach = min(1, t / 2.5)
-    for w in range(5):
-        pts = []
-        for k in range(60):
-            f = k / 59
-            if f > reach: break
-            x = tx + f * (300 + 40 * w)
-            y = ttop - 4 - f * 10 + 7 * math.sin(f * 9 - t * 3 + w * 1.4) + w * 5
-            pts.append((x, y))
-        if len(pts) > 1: d.line(pts, fill=g(20 - w * 2), width=2 if w < 2 else 1)
-    if t > 2.6:                                                                 # the stuff's name, out of the mist
-        a = min(1, (t - 2.6) / 1.2)
-        tw = d.textlength("RE-AGENT", font=BIG2)
-        d.text((W + int((W - tw) / 2), 22), "RE-AGENT", font=BIG2, fill=g(int(31 * a)))
     return None
 
 
@@ -268,7 +220,7 @@ small = ImageFont.truetype(FONT, 11, index=8)
 SMALL = small
 TINY = ImageFont.truetype(FONT, 8, index=8)
 BIG2 = ImageFont.truetype(FONT, 26, index=8)
-mid = ImageFont.truetype(FONT, 22, index=8)
+mid = ImageFont.truetype(FONT, 24, index=0)   # Bold, not Heavy: at this size Heavy closed the E's gaps
 total = 9.0 + 4.4 + sum(SCENE_SECS.values())   # the intro, the living logos, then the scenes
 for f in range(int(total * FPS)):
     t = f / FPS
@@ -345,9 +297,9 @@ for f in range(int(total * FPS)):
             v = t - 9.0 - LOOP_SECS
             canvas = Image.new("L", (2 * W, H), 0)
             fx = None
-            for name in ("rufus", "scientist", "lab"):
+            for name in ("rufus", "lab"):
                 if v < SCENE_SECS[name]:
-                    fx = {"rufus": scene_rufus, "scientist": scene_scientist, "lab": scene_lab}[name](canvas, v)
+                    fx = {"rufus": scene_rufus, "lab": scene_lab}[name](canvas, v)
                     break
                 v -= SCENE_SECS[name]
             if fx == "flash":
