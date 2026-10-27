@@ -1,8 +1,5 @@
 # RE-ANIMATOR
 
-[![Buy me a beer](https://img.shields.io/badge/Buy%20me%20a%20beer-%F0%9F%8D%BA-FFDD00?style=flat)](https://buymeacoffee.com/terracide)
-*This is free and always will be: no paywall, no catch. I build it in my spare time and don't earn a cent from it. If it saved you an evening or brought your gear back to life, a beer would honestly help me a lot to keep going.*
-
 **Old controllers, new life.** RE-ANIMATOR runs **Maschine 3** on a **Maschine MK1**, a controller that Maschine 3
 no longer supports on macOS. Keep your gear out of the e-waste.
 
