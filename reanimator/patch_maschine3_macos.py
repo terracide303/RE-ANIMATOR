@@ -27,6 +27,10 @@ MODELS = {  # model -> (subscription class as mangled in the symbols, device ID)
     # BETA: the MK2 is driven by NI's own NIHardwareAgent (it still has the MK2 class), so it needs no bridge;
     # the patch is the same two changes as the MK1's. Like the Windows MK2 patch, it takes the Jam's slot.
     'mk2': ('MaschineMK212Subscription', 0x1140),
+    # BETA: the Mikros are USB HID devices, which macOS drives without NI's old kernel drivers, and NI's own
+    # agent still has both classes, so like the MK2 they need no bridge. They take the Jam's slot as well.
+    'mikro1': ('MaschineMikroMK112Subscription', 0x1110),
+    'mikro2': ('MaschineMikroMK212Subscription', 0x1200),
 }
 JAM, JAM_PID = 'MaschineJam12Subscription', 0x1500
 SUB = 'ControllerSubscriptionINS_4NHL2'           # NI::MASCOMMON::HW::ControllerSubscription<NI::NHL2::<model>::Subscription, ...>
@@ -260,7 +264,15 @@ def _patched_model(app):
         for arch, off, _ in slices(data):
             s = Slice(data, arch, off)
             vtable = s.one(JAM, prefix=VTABLE)[1]
-            entries = [struct.unpack_from('<Q', data, s.file_offset(vtable + 8 * k))[0] for k in range(2, 16)]
+            # Jam's own entries only: the vtable ends at the next one's offset-to-top (0). Reading a fixed 14
+            # ran into the NEXT vtable -- the Mikro MK1 subscription's, with its own onDeviceAdded -- so a Mikro
+            # MK2 copy was taken for a Mikro MK1 (found 2026-10-27 when the Mikros were added).
+            entries = []
+            for k in range(2, 32):
+                v = struct.unpack_from('<Q', data, s.file_offset(vtable + 8 * k))[0]
+                if v == 0:
+                    break
+                entries.append(v)
             for model, (cls, _) in MODELS.items():
                 target = s.one(cls, '13onDeviceAdded', prefix='__ZN')[1] - s.image_base
                 if any(v >> 63 == 0 and v & TARGET_MASK == target for v in entries):

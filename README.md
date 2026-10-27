@@ -28,7 +28,8 @@ no longer supports on macOS. Keep your gear out of the e-waste.
 * **Fully undoable.** *Clean* deletes the copy; delete the app and everything is as before.
 * **Open:** all the code is here to read.
 
-> **This is the `betatest` branch: version 0.3 beta.** It adds the Maschine MK2 (untested on a Mac so far), our own
+> **This is the `betatest` branch: version 0.4 beta.** It adds the Maschine MK2 and both Maschine Mikros (MK1 and
+> MK2), untested on a Mac so far, our own
 > version of the MK1 bridge with pad, light and screen fixes, and RE-ANIMATOR's own startup animation on the MK1's
 > screens. The stable version is on `main`.
 
@@ -43,6 +44,13 @@ changes as for the MK1), makes sure NI's agent runs, and opens the copy.
   same trade-off as the known Windows MK2 patch). Your original Maschine 3 still runs the Jam as before.
 * Nobody has confirmed this on a Mac yet. **Beta testers: please report** what works (screens, pads, buttons,
   knobs, LEDs) and what does not, with your macOS and Maschine 3 versions and the logs listed below.
+
+## Maschine Mikro MK1 and MK2 (beta)
+
+The Mikros work like the MK2: they are standard USB HID devices that macOS drives without NI's old drivers, and NI's
+own agent still has both, so **no bridge** is needed. Choose **Maschine Mikro MK1 (beta)** or **Maschine Mikro MK2
+(beta)** as the controller (it is picked for you when one is plugged in) and press START. As with the MK2, a Maschine
+Jam does not work in that copy of Maschine 3. With Maschine 2 the Mikro MK2 is supported by NI anyway.
 
 ## Maschine 2 (beta)
 

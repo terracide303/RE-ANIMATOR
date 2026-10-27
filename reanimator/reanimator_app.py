@@ -27,13 +27,15 @@ DEFAULT_APP = '/Applications/Native Instruments/Maschine 3/Maschine 3.app'
 DEFAULT_DEST = os.path.expanduser('~/Applications/RE-ANIMATOR')
 BUNDLE_ID = 'com.native-instruments.Maschine 3'
 GOOD, BAD, NOTE, GREY = '#1a7f37', '#c62828', '#9a6700', '#6e6e73'
-MODEL_NAMES = {'mk1': 'Maschine MK1', 'mk2': 'Maschine MK2 (beta)'}
+MODEL_NAMES = {'mk1': 'Maschine MK1', 'mk2': 'Maschine MK2 (beta)',
+               'mikro1': 'Maschine Mikro MK1 (beta)', 'mikro2': 'Maschine Mikro MK2 (beta)'}
+MODEL_ORDER = ['mk1', 'mk2', 'mikro1', 'mikro2']     # the dropdown's order
 # The MK1 needs the MK1 Revive bridge; the MK2 is driven by NI's own NIHardwareAgent, which still has its class.
 NEEDS_BRIDGE = {'mk1'}
 # The software to run: Maschine 3 (a patched copy) or Maschine 2 (as installed: it still knows the MK1 and MK2)
 SOFTWARE_NAMES = {'m3': 'Maschine 3', 'm2': 'Maschine 2'}
 MASCHINE2_APP = '/Applications/Native Instruments/Maschine 2/Maschine 2.app'
-USB_IDS = {0x0808: 'mk1', 0x1140: 'mk2'}            # Native Instruments (vendor 0x17CC) product IDs
+USB_IDS = {0x0808: 'mk1', 0x1140: 'mk2', 0x1110: 'mikro1', 0x1200: 'mikro2'}   # Native Instruments (0x17CC)
 
 
 def detect_controllers():
@@ -49,7 +51,7 @@ def detect_controllers():
         if v and pr and int(v.group(1)) == 0x17CC and int(pr.group(1)) in USB_IDS:
             found.append(USB_IDS[int(pr.group(1))])
     return found
-VERSION = '0.3 beta'
+VERSION = '0.4 beta'
 APP_LOG = os.path.expanduser('~/Library/Logs/RE-ANIMATOR-app.log')
 
 
@@ -113,7 +115,7 @@ class App:
         found = detect_controllers()
         self.model = tk.StringVar(value=MODEL_NAMES[found[0] if found else 'mk1'])
         self.model_chosen = False                    # True once the user picks: detection stops steering it
-        box = ttk.Combobox(ctl, textvariable=self.model, values=[MODEL_NAMES[m] for m in sorted(P.MODELS)],
+        box = ttk.Combobox(ctl, textvariable=self.model, values=[MODEL_NAMES[m] for m in MODEL_ORDER if m in P.MODELS],
                            state='readonly', width=20, font=('Helvetica', 14))
         box.pack(side='left', padx=(8, 8))
         box.bind('<<ComboboxSelected>>', lambda e: (setattr(self, 'model_chosen', True), self.idle()))
@@ -468,7 +470,8 @@ class App:
             name = 'Maschine 2' if m2 else 'Maschine 3'
             done = ('✓  Running. %s connects to the MK1 after its plugin scan.\n'
                     'Quit %s when you are done: the bridge stops by itself.' % (name, name) if model in NEEDS_BRIDGE else
-                    '✓  Running (BETA). Maschine connects to the MK2 through NI\'s own agent after its plugin scan.\n'
+                    '✓  Running (BETA). Maschine connects to the %s through NI\'s own agent after its plugin scan.\n'
+                    % MODEL_NAMES[model].replace(' (beta)', '').replace('Maschine ', '') +
                     'Please tell us what works: screens, pads, buttons, knobs. A Maschine Jam does not work meanwhile.')
             self.root.after(0, lambda: (self.set_dest(self.dest_path),
                                         self.set_bridge(self.bridge.path) if self.bridge else None, self.note(log),
