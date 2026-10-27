@@ -29,4 +29,15 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
 * **2026-10-27 · The reconnect message** no longer says "restart Maschine 2 manually" but what to do: quit Maschine and
   start it again (in RE-ANIMATOR: START). Checked and left alone: the backlight (kept on by `emit_led_state`, also
   after Maschine quits) and the auto-open of Maschine 2 (off unless `MK1_AUTO_OPEN_MASCHINE` is set).
+* **2026-10-27 · Pads, lights and screen updates, after oskarmust's fork.** oskarmust's fork of MK1 Revive
+  (<https://github.com/oskarmust/maschine-mk1-revive>, "SPITE") found these upstream faults; it has no licence, so
+  none of its code is used: the fixes are written here from what the faults are.
+  * **Pads** (`mk1-usb/mk1_device.c`): each word of a pad report carries its pad number (top 4 bits) and pressure
+    (12 bits), and a report can begin at any pad. Upstream took the pad from the word's position, dropped reports
+    that did not begin at pad 0 and subtracted a first-report baseline: missed and dropped hits. Now the pad number
+    comes from the word, and a report without all sixteen pad numbers in both passes is skipped.
+  * **Lights**: LEDs Maschine switches off (value 0) were not copied, so they kept their old level.
+  * **Black screen updates** were skipped, so cleared areas kept old pixels.
+  * **Screen updates between two sends** kept only the newest rectangle; the pending area now grows to cover them all.
+  **Not yet tested on the MK1** (Dennis: ship and let testers tell us).
 

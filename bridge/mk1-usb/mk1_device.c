@@ -642,7 +642,7 @@ static uint16_t read_le16(const uint8_t *data)
     return (uint16_t)data[0] | ((uint16_t)data[1] << 8);
 }
 
-static bool mk1_is_scanned_button_report(const uint8_t *data, size_t len)
+__attribute__((unused)) static bool mk1_is_scanned_button_report(const uint8_t *data, size_t len)
 {
     if (!data || len != 64) {
         return false;
@@ -676,7 +676,7 @@ static uint8_t mk1_scan_phase(const uint8_t *data, size_t len)
     return (uint8_t)((read_le16(data) >> 12) & 0x0f);
 }
 
-static uint16_t mk1_normalize_pad_word(uint16_t raw, uint8_t phase)
+__attribute__((unused)) static uint16_t mk1_normalize_pad_word(uint16_t raw, uint8_t phase)
 {
     return (uint16_t)(raw - ((uint16_t)(phase & 0x0f) << 12));
 }
@@ -1632,78 +1632,30 @@ static void mk1_device_dispatch_input_report(mk1_pipe_reader_t *reader,
         return;
     }
 
-    // Some 64-byte EP4 reports are not pad pressure. The non-pad button/encoder
-    // state trace we captured is a duplicated 16-word scan table that steps by
-    // 0x1000 each slot. These ARE the resting-state pad values (pair K = K*0x1000).
-    // Use the first scan-table report to set the per-pad resting baseline so that
-    // subsequent pressure reports don't produce false hit_on events at startup.
-    if (mk1_is_scanned_button_report(data, len)) {
-        if (len == 64 && !dev->pad_baseline_set) {
-            uint8_t phase = mk1_scan_phase(data, len);
-            for (uint8_t i = 0; i < MK1_PAD_COUNT; i++) {
-                uint16_t raw = read_le16(data + (i * 2));
-                dev->pad_baseline[i] = mk1_normalize_pad_word(raw, phase);
-            }
-            dev->pad_baseline_set = true;
-            fprintf(stderr, "[mk1-usb] pad baseline set (from scan table) phase=%u:", phase);
-            for (uint8_t i = 0; i < MK1_PAD_COUNT; i++) {
-                fprintf(stderr, " p%u=0x%04x", i, dev->pad_baseline[i]);
-            }
-            fprintf(stderr, "\n");
-        }
-        log_scan_report(reader, data, len);
-        return;
-    }
-
-    // EP4 pad pressure report: 64 bytes, no report-ID prefix.
-    // pcap confirms: pad[i] raw value is at bytes[i*2 .. i*2+1] (LE uint16).
-    // Bytes[0..31] = first 16 pad channels; bytes[32..63] = second channel (ignored).
-    //
-    // The first report received is used as a per-pad baseline (resting level).
-    // Pressure is reported as delta above baseline, clamped to [0, 4095].
-    // This eliminates false-positive events from non-zero resting values.
+    // RE-ANIMATOR: EP4 pad reports, decoded by the pad number each word carries.
+    // A 64-byte report holds two passes of 16 little-endian words. Each word is
+    // (pad number << 12) | pressure (12 bits), and a report may begin at ANY pad
+    // number. Upstream read the pad from the word's position, treated a report that
+    // did not begin at pad 0 as a scan table and dropped it, and subtracted a
+    // baseline taken from the first report -- which is where the missed and dropped
+    // hits came from. The pad number is in the word itself; a report that does not
+    // carry all sixteen pad numbers in both passes is skipped rather than guessed at.
+    // (Found by oskarmust's fork of MK1 Revive; written here independently.)
     if (len == 64) {
-        uint8_t phase = mk1_scan_phase(data, len);
-
-        // Pressure reports always have phase=0: pad 0 rests at 0x0000 and max
-        // pressure is 4095 (0x0FFF), so its top nibble is always 0. Any report
-        // with phase != 0 is a scan table that the ring-pattern classifier missed
-        // (e.g., channels A and B had slightly different lower bits so the
-        // duplicate check failed). Discard it here.
-        if (phase != 0) {
-            log_scan_report(reader, data, len);
-            return;
-        }
-
-        if (!dev->pad_baseline_set) {
-            for (uint8_t i = 0; i < MK1_PAD_COUNT; i++) {
-                uint16_t raw = read_le16(data + (i * 2));
-                dev->pad_baseline[i] = mk1_normalize_pad_word(raw, phase);
-            }
-            dev->pad_baseline_set = true;
-            fprintf(stderr, "[mk1-usb] pad baseline set (from pressure report) phase=%u:", phase);
-            for (uint8_t i = 0; i < MK1_PAD_COUNT; i++) {
-                fprintf(stderr, " p%u=0x%04x", i, dev->pad_baseline[i]);
-            }
-            fprintf(stderr, "\n");
-            return;  // skip this first report; it is calibration only
-        }
-
         mk1_pad_event_t pads[MK1_PAD_COUNT];
-        for (uint8_t i = 0; i < MK1_PAD_COUNT; i++) {
-            uint16_t raw    = read_le16(data + (i * 2));
-            uint16_t dup    = read_le16(data + 32 + (i * 2));
-            uint16_t norm   = mk1_normalize_pad_word(raw, phase);
-            int32_t  delta  = (int32_t)norm - (int32_t)dev->pad_baseline[i];
-            pads[i].index    = i;
-            pads[i].pressure = (uint16_t)(delta <= 0 ? 0 : (delta > 4095 ? 4095 : delta));
-            if (pads[i].pressure > 300) {
-                fprintf(stderr,
-                        "[mk1-usb] high-pressure pad=%u pressure=%u raw=0x%04x dup=0x%04x norm=0x%04x baseline=0x%04x phase=%u\n",
-                        i, pads[i].pressure, raw, dup, norm, dev->pad_baseline[i], phase);
-            }
+        uint32_t ids_first = 0, ids_second = 0;
+        for (uint8_t k = 0; k < MK1_PAD_COUNT; k++) {
+            uint16_t w1 = read_le16(data + k * 2);
+            uint16_t w2 = read_le16(data + 32 + k * 2);
+            uint8_t pad = (uint8_t)(w1 >> 12);
+            ids_first  |= 1u << pad;
+            ids_second |= 1u << (w2 >> 12);
+            pads[pad].index = pad;
+            pads[pad].pressure = (uint16_t)(w1 & 0x0fff);
         }
-
+        if (ids_first != 0xffffu || ids_second != 0xffffu) {
+            return;                                   // incomplete: no events, and no invented releases
+        }
         if (dev->pad_cb) {
             dev->pad_cb(pads, MK1_PAD_COUNT, dev->cb_context);
         }

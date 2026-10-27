@@ -1377,16 +1377,9 @@ static void forward_display(bridge_t *br, const uint8_t *raw_msg, size_t raw_len
 
     const uint8_t *pixels = raw_msg + IPC_DISPLAY_HDR_LEN;
 
-    // Skip all-zero (pure black) updates — Maschine sends these as view-transition clears
-    // before new content arrives. Holding the previous frame prevents a brief dark flash.
-    bool all_black = true;
-    for (size_t i = 0; i < (size_t)pixel_len && all_black; i++) {
-        if (pixels[i] != 0x00) all_black = false;
-    }
-    if (all_black) {
-        DLOG("disp=%u skipping all-black update (pixel_len=%u)", disp_idx, pixel_len);
-        return;
-    }
+    // RE-ANIMATOR: black updates are real updates. Upstream skipped all-black ones (as view-change flashes), so a
+    // meter falling back or a view clearing an area left its old pixels on screen. The flush timer already merges
+    // a clear with the content that follows it. (Found by oskarmust's fork; written here independently.)
 
     // Composite update region into the local framebuffer at the correct (y, x) position.
     pthread_mutex_lock(&g_display_lock);
@@ -1398,12 +1391,21 @@ static void forward_display(bridge_t *br, const uint8_t *raw_msg, size_t raw_len
     if (g_display_batch_start_ns[disp_idx] == 0) {
         g_display_batch_start_ns[disp_idx] = start_ns;
     }
-    // Partial mode performs best when we keep the newest region instead of
-    // unioning many small updates into a large near-full-frame box.
-    g_display_row_start[disp_idx] = y;
-    g_display_row_end[disp_idx] = (uint16_t)(y + h - 1);
-    g_display_byte_x_start[disp_idx] = (uint16_t)byte_x;
-    g_display_byte_x_end[disp_idx] = (uint16_t)(byte_x + bytes_per_row - 1);
+    // RE-ANIMATOR: the pending region GROWS to cover every update not flushed yet. Upstream kept only the newest
+    // rectangle, so two updates between flushes sent only the second, and the first area kept stale pixels. A
+    // bigger box costs a little USB time; a lost update costs a wrong screen. (Found by oskarmust's fork.)
+    uint16_t ny0 = y, ny1 = (uint16_t)(y + h - 1);
+    uint16_t nx0 = (uint16_t)byte_x, nx1 = (uint16_t)(byte_x + bytes_per_row - 1);
+    if (g_display_have_region[disp_idx]) {
+        if (g_display_row_start[disp_idx] < ny0) ny0 = g_display_row_start[disp_idx];
+        if (g_display_row_end[disp_idx] > ny1) ny1 = g_display_row_end[disp_idx];
+        if (g_display_byte_x_start[disp_idx] < nx0) nx0 = g_display_byte_x_start[disp_idx];
+        if (g_display_byte_x_end[disp_idx] > nx1) nx1 = g_display_byte_x_end[disp_idx];
+    }
+    g_display_row_start[disp_idx] = ny0;
+    g_display_row_end[disp_idx] = ny1;
+    g_display_byte_x_start[disp_idx] = nx0;
+    g_display_byte_x_end[disp_idx] = nx1;
     g_display_have_region[disp_idx] = true;
     g_display_dirty_mask |= (1u << disp_idx);
     pthread_mutex_unlock(&g_display_lock);
@@ -1839,7 +1841,9 @@ static void emit_led_state(bridge_t *br, const uint8_t *led_logical, size_t full
     // phys[3..10] via the legacy table; this pass corrects them).
     for (uint8_t li = 32; li <= 56 && (size_t)li < full_len; li++) {
         uint8_t dev_slot = (uint8_t)(li + 1);
-        if (dev_slot < 62 && led_logical[li] != 0) device_leds[dev_slot] = led_logical[li];
+        // RE-ANIMATOR: off is a value too. Upstream copied only lit LEDs here, so a light Maschine switched off
+        // kept its previous level. (Found by oskarmust's fork; written here independently.)
+        if (dev_slot < 62) device_leds[dev_slot] = led_logical[li];
     }
 
     if (g_led_autowrite_pressed) {
