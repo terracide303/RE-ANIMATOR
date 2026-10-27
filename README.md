@@ -43,7 +43,7 @@ Mac.
 ## Requirements
 
 * A Mac with **Apple Silicon** (M1 or later).
-* **Maschine 3**, installed and activated (tested: 3.6.0). Other versions are checked before anything is patched: if
+* **Maschine 3**, installed and activated. **Confirmed working:** 3.6.0 (iMac, Apple Silicon) and 3.7 (Mac mini M4, a beta tester, 2026-10-27). Other versions are checked before anything is patched: if
   RE-ANIMATOR does not find exactly what it expects, it refuses and changes nothing.
 * A **Maschine MK1** connected over USB.
 * About 1 GB of free disk space for the patched copy.
