@@ -12,3 +12,5 @@ clang -std=gnu17 -O2 -arch arm64 -mmacosx-version-min=12.0 \
     -framework CoreFoundation -framework IOKit -framework CoreMIDI
 codesign -f -s - build/mk1-bridge 2>/dev/null
 echo "built: $(pwd)/build/mk1-bridge"
+# the screen animation, drawn by anim/make_anim.py (needs Pillow); without it the bridge plays andy83's cat
+if python3 anim/make_anim.py build/reanimator.anim; then :; else echo "no animation built (pip install pillow): the cat plays"; fi

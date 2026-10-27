@@ -49,6 +49,7 @@ APP="$ROOT/dist/RE-ANIMATOR.app"
 mkdir -p "$APP/Contents/Resources/vendor"
 if "$ROOT/bridge/build.sh"; then
     cp "$ROOT/bridge/build/mk1-bridge" "$APP/Contents/Resources/vendor/mk1-bridge"
+    [ -f "$ROOT/bridge/build/reanimator.anim" ] && cp "$ROOT/bridge/build/reanimator.anim" "$APP/Contents/Resources/vendor/"
 else
     echo "our bridge did not build: using andy83's released binary"
     cp "$BRIDGE" "$APP/Contents/Resources/vendor/mk1-bridge"

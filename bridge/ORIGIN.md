@@ -17,3 +17,10 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
   looks for `Maschine 2`, so with Maschine 3 it showed its idle screen two seconds after connecting. It now matches
   `Maschine 2` and `Maschine 3` (`MASCHINE_PROCESS` in `mk1-bridge/main.c`). RE-ANIMATOR's patched copy still names
   its executable `Maschine 2`, so the original bridge keeps working with it too.
+* **2026-10-27 · RE-ANIMATOR's own screen animation instead of the UFO and cat.** Drawn by `anim/make_anim.py` (our
+  own artwork, inspired by the film, nothing copied) into `reanimator.anim`, which the bridge loads from beside its
+  binary (`anim_load` in `mk1-bridge/main.c`): a flatline, a syringe of glowing reagent, a heartbeat, one big
+  RE-ANIMATOR logo over both screens that splits into one logo per screen, then a living loop (drips that fall and
+  grow back, a small heartbeat, a pulse on each beat). The intro replays every 30 s while it waits for Maschine.
+  Without the file, andy83's UFO-and-cat animation plays as before. Tested on the MK1 on 2026-10-27.
+

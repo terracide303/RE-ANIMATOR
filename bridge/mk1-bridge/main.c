@@ -19,6 +19,7 @@
 #include <stdarg.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreMIDI/CoreMIDI.h>
+#include <mach-o/dyld.h>        // RE-ANIMATOR: _NSGetExecutablePath, to find reanimator.anim beside us
 #include <dispatch/dispatch.h>
 
 #include "bridge.h"
@@ -1170,6 +1171,81 @@ static void start_display_flush_timer(bridge_t *br)
     dispatch_resume(g_display_flush_timer);
 }
 
+// ---- RE-ANIMATOR's own animation ---------------------------------------------------------------------------
+// Drawn by bridge/anim/make_anim.py into reanimator.anim, which sits beside this binary: two 255x64 screens of 5-bit
+// grey per frame, run-length coded as (count, value) pairs. The intro plays once, then frames loop..count-1 repeat
+// until Maschine takes the screens. Without the file, andy83's UFO-and-cat animation plays as before.
+typedef struct {
+    uint16_t w, h, fps, count, loop;
+    uint8_t *data;
+    size_t   size;
+    uint32_t *off;          // per frame and screen: where its RLE data starts, and (next entry) where it ends
+    uint32_t *len;
+} reanimator_anim_t;
+static reanimator_anim_t g_anim;
+#define REANIM_REPLAY_SECS 30   // while it waits for Maschine, the whole intro plays again this often
+static bool g_anim_tried = false;
+
+static bool anim_load(void)
+{
+    if (g_anim_tried) return g_anim.data != NULL;
+    g_anim_tried = true;
+    char path[PATH_MAX];
+    uint32_t sz = sizeof(path);
+    if (_NSGetExecutablePath(path, &sz) != 0) return false;
+    char *slash = strrchr(path, '/');
+    if (!slash || (size_t)(slash - path) + 17 >= sizeof(path)) return false;
+    strcpy(slash + 1, "reanimator.anim");
+    FILE *f = fopen(path, "rb");
+    if (!f) { BLOG("anim: %s not found, the cat plays", path); return false; }
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t *d = (n > 18 && n < 64L * 1024 * 1024) ? malloc((size_t)n) : NULL;
+    if (!d || fread(d, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(d); BLOG("anim: unreadable"); return false; }
+    fclose(f);
+    reanimator_anim_t a = {0};
+    if (memcmp(d, "RANIM1", 6) != 0) { free(d); BLOG("anim: not a RANIM1 file"); return false; }
+    memcpy(&a.w, d + 8, 2); memcpy(&a.h, d + 10, 2); memcpy(&a.fps, d + 12, 2);
+    memcpy(&a.count, d + 14, 2); memcpy(&a.loop, d + 16, 2);
+    if (a.w != 255 || a.h != 64 || !a.fps || a.fps > 60 || !a.count || a.loop >= a.count) {
+        free(d); BLOG("anim: unexpected header"); return false;
+    }
+    a.off = calloc((size_t)a.count * 2, sizeof(uint32_t));
+    a.len = calloc((size_t)a.count * 2, sizeof(uint32_t));
+    size_t pos = 18;
+    for (int i = 0; i < a.count * 2; i++) {
+        uint32_t len;
+        if (pos + 4 > (size_t)n) break;
+        memcpy(&len, d + pos, 4);
+        pos += 4;
+        if (pos + len > (size_t)n || (len & 1)) { pos = (size_t)n + 1; break; }
+        a.off[i] = (uint32_t)pos;
+        a.len[i] = len;
+        pos += len;
+    }
+    if (pos != (size_t)n) { free(d); free(a.off); free(a.len); BLOG("anim: truncated or damaged"); return false; }
+    a.data = d;
+    a.size = (size_t)n;
+    g_anim = a;
+    BLOG("anim: %u frames at %u fps, looping from %u (%s)", a.count, a.fps, a.loop, path);
+    return true;
+}
+
+static void anim_frame_fb(int idx, int screen, uint8_t *fb)
+{
+    static uint8_t bmp[64][255];
+    uint8_t *flat = &bmp[0][0];
+    size_t px = 0;
+    const uint8_t *p = g_anim.data + g_anim.off[idx * 2 + screen];
+    const uint8_t *end = p + g_anim.len[idx * 2 + screen];
+    for (; p + 1 < end + 1 && p < end; p += 2) {
+        for (int k = 0; k < p[0] && px < sizeof(bmp); k++) flat[px++] = p[1] & 0x1F;
+    }
+    while (px < sizeof(bmp)) flat[px++] = 0;
+    bmp_pack_st7529(fb, bmp);
+}
+
 static void stop_cat_animation(void)
 {
     if (g_cat_anim_timer) {
@@ -1187,6 +1263,27 @@ static void start_cat_animation(bridge_t *br)
     g_cat_anim_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
                                               dispatch_get_main_queue());
     if (!g_cat_anim_timer) return;
+
+    if (anim_load()) {                       // RE-ANIMATOR: our animation, on both screens
+        BLOG("reanimator anim: starting");
+        uint64_t step = 1000 / g_anim.fps;
+        dispatch_source_set_timer(g_cat_anim_timer, dispatch_time(DISPATCH_TIME_NOW, 0),
+                                  step * NSEC_PER_MSEC, 1 * NSEC_PER_MSEC);
+        dispatch_source_set_event_handler(g_cat_anim_timer, ^{
+            if (!g_running || !br->usb) return;
+            // the intro once, the loop for REANIM_REPLAY_SECS, then the intro again, for as long as it waits
+            int cycle = g_anim.loop + REANIM_REPLAY_SECS * g_anim.fps;
+            int i = g_cat_anim_frame++ % cycle;
+            if (i >= g_anim.loop) i = g_anim.loop + (i - g_anim.loop) % (g_anim.count - g_anim.loop);
+            uint8_t left_fb[DISPLAY_FB_BYTES], right_fb[DISPLAY_FB_BYTES];
+            anim_frame_fb(i, 0, left_fb);
+            anim_frame_fb(i, 1, right_fb);
+            send_fb_to_display(br, 0x00, left_fb);
+            send_fb_to_display(br, 0x02, right_fb);
+        });
+        dispatch_resume(g_cat_anim_timer);
+        return;
+    }
 
     BLOG("cat anim: starting");
     dispatch_source_set_timer(g_cat_anim_timer,
@@ -1214,6 +1311,11 @@ static void show_status_screen(bridge_t *br)
     uint8_t left_fb[DISPLAY_FB_BYTES];
     uint8_t right_fb[DISPLAY_FB_BYTES];
 
+    if (anim_load()) {                       // RE-ANIMATOR: the animation draws both screens itself
+        start_cat_animation(br);
+        DLOG("status screen: reanimator animation");
+        return;
+    }
     render_cat_status_fb(left_fb, 0);
     render_status_fb(right_fb, "Open Maschine", "Software", true);
 
