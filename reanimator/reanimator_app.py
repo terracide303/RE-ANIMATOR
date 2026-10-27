@@ -109,7 +109,7 @@ class App:
         top.grid(row=2, column=0, sticky='w')
         ctl = ttk.Frame(top)
         ctl.pack(side='top', anchor='w', pady=(0, 4))
-        tk.Label(ctl, text='Controller:', font=('Helvetica', 14)).pack(side='left')
+        tk.Label(ctl, text='Controller:', font=('Helvetica', 14), width=9, anchor='w').pack(side='left')   # same width: the dropdowns line up
         found = detect_controllers()
         self.model = tk.StringVar(value=MODEL_NAMES[found[0] if found else 'mk1'])
         self.model_chosen = False                    # True once the user picks: detection stops steering it
@@ -121,14 +121,16 @@ class App:
         self.connected.pack(side='left')
         sw = ttk.Frame(top)
         sw.pack(side='top', anchor='w', pady=(0, 10))
-        tk.Label(sw, text='Software:', font=('Helvetica', 14)).pack(side='left')
+        tk.Label(sw, text='Software:', font=('Helvetica', 14), width=9, anchor='w').pack(side='left')
         self.software = tk.StringVar(value=SOFTWARE_NAMES['m3'])
         swbox = ttk.Combobox(sw, textvariable=self.software, values=[SOFTWARE_NAMES['m3'], SOFTWARE_NAMES['m2']],
                              state='readonly', width=20, font=('Helvetica', 14))
         swbox.pack(side='left', padx=(8, 8))
         swbox.bind('<<ComboboxSelected>>', lambda e: self.idle())
+        self.found = tk.Label(sw, text='', font=('Helvetica', 12), foreground=GREY)
+        self.found.pack(side='left')
         self.summary = tk.Label(sw, text='', font=('Helvetica', 13), anchor='w', justify='left')
-        self.summary.pack(side='left')
+        self.summary.pack(side='left', padx=(8, 0))
         main = ttk.Frame(top)
         main.pack(side='top', anchor='w')
         style = ttk.Style()
@@ -225,15 +227,16 @@ class App:
 
     def show_summary(self):
         """the Maschine version and what START will do, beside the software choice"""
+        # '● found' in green, like '● connected' for the controller: the version you chose is on this Mac
         if self.software_key() == 'm2':
             here = os.path.isdir(MASCHINE2_APP)
-            self.summary.config(text=('%s · runs as installed' % P.app_version(MASCHINE2_APP)) if here
-                                else 'not found in /Applications/Native Instruments', foreground='black' if here else BAD)
+            text = ('%s · runs as installed' % P.app_version(MASCHINE2_APP)) if here else 'in /Applications/Native Instruments'
         else:
-            text = P.app_version(self.app_path) if self.app_path else 'not found'
-            copy = ' · patched copy ready' if self.app_path and self.current_copy() else (
-                ' · copy made on START' if self.app_path else '')
-            self.summary.config(text=text + copy, foreground='black' if self.app_path else BAD)
+            here = bool(self.app_path)
+            copy = ' · patched copy ready' if here and self.current_copy() else (' · copy made on START' if here else '')
+            text = (P.app_version(self.app_path) + copy) if here else 'choose it under Options'
+        self.found.config(text='● found' if here else 'not found', foreground=GOOD if here else BAD)
+        self.summary.config(text=text, foreground='black' if here else GREY)
         self.show_connected()
 
     def show_connected(self, found=None):
