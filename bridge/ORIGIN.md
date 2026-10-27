@@ -23,4 +23,10 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
   RE-ANIMATOR logo over both screens that splits into one logo per screen, then a living loop (drips that fall and
   grow back, a small heartbeat, a pulse on each beat). The intro replays every 30 s while it waits for Maschine.
   Without the file, andy83's UFO-and-cat animation plays as before. Tested on the MK1 on 2026-10-27.
+* **2026-10-27 · The screens are really cleared on connect.** On arrival the bridge cleared both screens with one
+  `mk1_set_display` call per screen (10880 bytes), which refuses anything over 508 bytes ("payload too large" in the
+  log), so stale pixels stayed. It now goes through `send_fb_to_display`, which sends a frame in pieces.
+* **2026-10-27 · The reconnect message** no longer says "restart Maschine 2 manually" but what to do: quit Maschine and
+  start it again (in RE-ANIMATOR: START). Checked and left alone: the backlight (kept on by `emit_led_state`, also
+  after Maschine quits) and the auto-open of Maschine 2 (off unless `MK1_AUTO_OPEN_MASCHINE` is set).
 

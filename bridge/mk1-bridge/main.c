@@ -413,8 +413,8 @@ static void reconnect_poll(void)
 
     int max_polls = (RECONNECT_TIMEOUT_SECS * 1000) / RECONNECT_POLL_MS;
     if (g_reconnect_poll_count >= max_polls) {
-        BLOG("reconnect: timed out after %ds — restart Maschine 2 manually",
-             RECONNECT_TIMEOUT_SECS);
+        BLOG("reconnect: Maschine did not come back within %ds -- quit Maschine and start it again "
+             "(RE-ANIMATOR: press START)", RECONNECT_TIMEOUT_SECS);
         return;
     }
 
@@ -3393,9 +3393,12 @@ static bool device_open_and_init(bridge_t *br)
     // Maschine only repaints on a state change, so without this the display shows
     // stale pixels until the user does something in the app.
     {
+        // RE-ANIMATOR: through send_fb_to_display, which sends a frame in pieces. A whole frame in one
+        // mk1_set_display call (10880 bytes, its limit is 508) was refused -- "payload too large" in the log --
+        // so the screens were never actually cleared.
         static const uint8_t k_black[MK1_DISPLAY_FB_BYTES];
-        mk1_set_display(br->usb, 0x00, k_black, sizeof(k_black));
-        mk1_set_display(br->usb, 0x02, k_black, sizeof(k_black));
+        send_fb_to_display(br, 0x00, k_black);
+        send_fb_to_display(br, 0x02, k_black);
     }
 
     // Turn on display backlight. The init sequence clears DIMM_LEDS to all zeros
