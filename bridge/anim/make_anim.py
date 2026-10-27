@@ -97,6 +97,9 @@ def heart_line(d, t, y=59):
 
 
 SCENE_SECS = {"rufus": 8.0, "lab": 6.0}
+LOGO_SECS = 2 * LOOP_SECS     # the logos stay 8.8 s: two whole drip cycles, so the drips join up at every cut
+GLOW_SECS = LOGO_SECS / 3     # three slow glows per stretch of logos
+SEGMENTS = [("logos", LOGO_SECS), ("rufus", SCENE_SECS["rufus"]), ("logos", LOGO_SECS), ("lab", SCENE_SECS["lab"])]
 
 
 def cat(d, cx, base, pose, glow):
@@ -221,7 +224,7 @@ SMALL = small
 TINY = ImageFont.truetype(FONT, 8, index=8)
 BIG2 = ImageFont.truetype(FONT, 26, index=8)
 mid = ImageFont.truetype(FONT, 24, index=0)   # Bold, not Heavy: at this size Heavy closed the E's gaps
-total = 9.0 + 4.4 + sum(SCENE_SECS.values())   # the intro, the living logos, then the scenes
+total = 9.0 + sum(secs for _, secs in SEGMENTS)   # the intro, then the logos between every scene
 for f in range(int(total * FPS)):
     t = f / FPS
     a, b, da, db = screens()
@@ -293,31 +296,32 @@ for f in range(int(total * FPS)):
                 L = random.randint(4, 18)
                 fy = 44 + L + int(120 * (u - 1.8) ** 2)
                 if fy < H: dc.ellipse([x - 2, fy - 2, x + 2, fy + 2], fill=g(31))
-        elif t >= 9.0 + LOOP_SECS:                # the scenes after the living logos, then the bridge starts over
-            v = t - 9.0 - LOOP_SECS
-            canvas = Image.new("L", (2 * W, H), 0)
-            fx = None
-            for name in ("rufus", "lab"):
-                if v < SCENE_SECS[name]:
-                    fx = {"rufus": scene_rufus, "lab": scene_lab}[name](canvas, v)
-                    break
-                v -= SCENE_SECS[name]
-            if fx == "flash":
-                canvas = Image.new("L", (2 * W, H), g(31))
-            dc = ImageDraw.Draw(canvas)
-        elif t >= 9.0:                            # the loop: living logos, a heartbeat, a pulse on each beat
+        elif t >= 9.0:                            # after the intro: the logos, a scene, the logos, a scene ...
             v = t - 9.0
-            small_w = dc.textlength("RE-ANIMATOR", font=mid)
-            beat = ((v / LOOP_SECS) * 4) % 1 < 0.08              # four beats per loop, in step with the line
-            for cx in (W / 2, W * 1.5):
-                living_logo(dc, int(cx - small_w / 2), "RE-ANIMATOR", mid, v, 31 if beat else 26)
-            from PIL import ImageChops
-            for half in (0, 1):                   # the heartbeat, light over whatever is there (falling drops)
-                layer = Image.new("L", canvas.size, 0)
-                heart_line(ImageDraw.Draw(layer), v)
-                if half: layer = ImageChops.offset(layer, W, 0)
-                canvas = ImageChops.lighter(canvas, layer)
-            dc = ImageDraw.Draw(canvas)
+            seg = None
+            for name, secs in SEGMENTS:
+                if v < secs:
+                    seg = name
+                    break
+                v -= secs
+            if seg == "logos":                    # living logos that glow slowly, and a small heartbeat
+                small_w = dc.textlength("RE-ANIMATOR", font=mid)
+                glow = 0.5 + 0.5 * math.cos(2 * math.pi * v / GLOW_SECS)          # 1 -> 0 -> 1: starts as bright as the intro ends
+                for cx in (W / 2, W * 1.5):
+                    living_logo(dc, int(cx - small_w / 2), "RE-ANIMATOR", mid, v, int(14 + 17 * glow))
+                from PIL import ImageChops
+                for half in (0, 1):               # the heartbeat, light over whatever is there (falling drops)
+                    layer = Image.new("L", canvas.size, 0)
+                    heart_line(ImageDraw.Draw(layer), v)
+                    if half: layer = ImageChops.offset(layer, W, 0)
+                    canvas = ImageChops.lighter(canvas, layer)
+                dc = ImageDraw.Draw(canvas)
+            else:
+                canvas = Image.new("L", (2 * W, H), 0)
+                fx = {"rufus": scene_rufus, "lab": scene_lab}[seg](canvas, v)
+                if fx == "flash":
+                    canvas = Image.new("L", (2 * W, H), g(31))
+                dc = ImageDraw.Draw(canvas)
         else:                                     # one logo on each screen, dripping again, alive
             small_w = dc.textlength("RE-ANIMATOR", font=mid)
             for cx in (W / 2, W * 1.5):

@@ -50,4 +50,6 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
   logos use Avenir Next Bold 24 instead of Heavy 22, whose E closed up into a lump on the 255x64 screens. In the cat
   scene the reagent now sprays from the needle across both screens to the cat. The scientist scene was tried and
   removed.
+* **2026-10-27 · The logos glow slowly and come back between the scenes:** after the intro the file runs logos (8.8 s,
+  three slow glows) -> Rufus -> logos -> the lab, about 41 s, then the bridge starts it over.
 
