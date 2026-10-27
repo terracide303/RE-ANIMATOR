@@ -9,6 +9,7 @@ installed Maschine 3 is only ever read: it stays exactly as it is. Options (fold
 the bridge are, the controller, Clean.
 """
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -29,6 +30,22 @@ GOOD, BAD, NOTE, GREY = '#1a7f37', '#c62828', '#9a6700', '#6e6e73'
 MODEL_NAMES = {'mk1': 'Maschine MK1', 'mk2': 'Maschine MK2 (beta)'}
 # The MK1 needs the MK1 Revive bridge; the MK2 is driven by NI's own NIHardwareAgent, which still has its class.
 NEEDS_BRIDGE = {'mk1'}
+USB_IDS = {0x0808: 'mk1', 0x1140: 'mk2'}            # Native Instruments (vendor 0x17CC) product IDs
+
+
+def detect_controllers():
+    """the models connected over USB right now, read from ioreg (macOS's own device list)"""
+    try:
+        out = subprocess.run(['ioreg', '-p', 'IOUSB', '-l', '-w0'], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    found = []
+    for block in out.split('+-o ')[1:]:
+        v = re.search(r'"idVendor" = (\d+)', block)
+        pr = re.search(r'"idProduct" = (\d+)', block)
+        if v and pr and int(v.group(1)) == 0x17CC and int(pr.group(1)) in USB_IDS:
+            found.append(USB_IDS[int(pr.group(1))])
+    return found
 VERSION = '0.2 beta MK2'
 APP_LOG = os.path.expanduser('~/Library/Logs/RE-ANIMATOR-app.log')
 
@@ -87,6 +104,18 @@ class App:
 
         top = ttk.Frame(f)
         top.grid(row=2, column=0, sticky='w')
+        ctl = ttk.Frame(top)
+        ctl.pack(side='top', anchor='w', pady=(0, 4))
+        tk.Label(ctl, text='Controller:', font=('Helvetica', 14)).pack(side='left')
+        found = detect_controllers()
+        self.model = tk.StringVar(value=MODEL_NAMES[found[0] if found else 'mk1'])
+        self.model_chosen = False                    # True once the user picks: detection stops steering it
+        box = ttk.Combobox(ctl, textvariable=self.model, values=[MODEL_NAMES[m] for m in sorted(P.MODELS)],
+                           state='readonly', width=20, font=('Helvetica', 14))
+        box.pack(side='left', padx=(8, 8))
+        box.bind('<<ComboboxSelected>>', lambda e: (setattr(self, 'model_chosen', True), self.idle()))
+        self.connected = tk.Label(ctl, text='', font=('Helvetica', 12), foreground=GREY)
+        self.connected.pack(side='left')
         self.summary = tk.Label(top, text='', font=('Helvetica', 14), anchor='w', justify='left')
         self.summary.pack(side='top', anchor='w', pady=(0, 10))
         main = ttk.Frame(top)
@@ -127,10 +156,6 @@ class App:
         self.app_status, self.app_detail = self.row(o, 0, 'Maschine 3', self.pick_app)
         self.dest_status, self.dest_detail = self.row(o, 2, 'Copy goes to', self.pick_dest)
         self.bridge_status, self.bridge_detail = self.row(o, 4, 'MK1 bridge', self.pick_bridge)
-        ttk.Label(o, text='Controller', font=('Helvetica', 13, 'bold')).grid(row=6, column=0, sticky='w', pady=(8, 0))
-        self.model = tk.StringVar(value=MODEL_NAMES['mk1'])
-        ttk.Combobox(o, textvariable=self.model, values=[MODEL_NAMES[m] for m in sorted(P.MODELS)],
-                     state='readonly', width=18).grid(row=6, column=1, sticky='w', padx=10, pady=(8, 0))
         bar = ttk.Frame(o)
         bar.grid(row=7, column=0, columnspan=3, sticky='w', pady=(12, 0))
         ttk.Button(bar, text='Clean…', command=self.clean).pack(side='left')
@@ -180,21 +205,40 @@ class App:
         self.set_dest(DEFAULT_DEST)
         self.set_bridge(B.find_bridge())
         self.idle()
+        self.root.after(3000, self.poll_usb)
 
     def show_summary(self):
         """the controller and the Maschine version, on the main screen"""
         software = ('Maschine 3 %s' % P.app_version(self.app_path)) if self.app_path else 'Maschine 3 not found'
         copy = ' · patched copy ready' if self.app_path and self.current_copy() else (
             ' · copy made on START' if self.app_path else '')
-        self.summary.config(text='Controller: %s    ·    Software: %s%s' % (self.model.get(), software, copy),
+        self.summary.config(text='Software: %s%s' % (software, copy),
                             foreground='black' if self.app_path else BAD)
+        self.show_connected()
+
+    def show_connected(self, found=None):
+        found = detect_controllers() if found is None else found
+        here = self.model_key() in found
+        self.connected.config(text='● connected' if here else ('not connected' + (
+            '  (found: %s)' % ', '.join(MODEL_NAMES[m] for m in found) if found else '')),
+            foreground=GOOD if here else GREY)
+
+    def poll_usb(self):
+        """every few seconds: the connected label, and the dropdown follows what is plugged in until the user
+        has picked a model themselves"""
+        found = detect_controllers()
+        if found and not self.model_chosen and self.model_key() not in found:
+            self.model.set(MODEL_NAMES[found[0]])
+            self.idle()
+        self.show_connected(found)
+        self.root.after(3000, self.poll_usb)
 
     def idle(self):
         self.start_button.state(['!disabled'])
         self.show_summary()
         if not self.app_path:
             self.tell('Maschine 3 was not found. Open Options to choose it.', BAD)
-        elif not self.bridge:
+        elif self.model_key() in NEEDS_BRIDGE and not self.bridge:
             self.tell('The MK1 bridge was not found. Open Options to choose it.', BAD)
         else:
             copy = self.current_copy()
