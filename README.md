@@ -10,6 +10,26 @@ no longer supports on macOS. Keep your gear out of the e-waste.
 
 > **Beta (0.1).** Unofficial; not made, supported or endorsed by Native Instruments. Use at your own risk.
 
+## Testers wanted: 0.4 beta
+
+**Have a Maschine MK2, Mikro MK1 or Mikro MK2? Help test the next version.**
+[**Download RE-ANIMATOR 0.4 beta**](https://github.com/terracide303/RE-ANIMATOR/releases/tag/v0.4-beta) (Apple Silicon).
+It adds:
+
+* **Maschine MK2, Mikro MK1 and Mikro MK2** in Maschine 3: no bridge needed, NI's own agent drives them. Not yet
+  confirmed on a Mac: **this is what we need testers for.**
+* **A better MK1 bridge** (our version of MK1 Revive by andy83): pads no longer miss hits, lights that go off really
+  go off, and screens keep no stale pixels. Plus RE-ANIMATOR's own startup animation on the MK1's screens.
+* **Maschine 2 as well as Maschine 3**, and the controller you plug in is picked for you.
+
+**Please report** what works and what doesn't (screens, pads, buttons, knobs, lights) in an
+[issue](https://github.com/terracide303/RE-ANIMATOR/issues), with your Mac, macOS version, Maschine version and
+controller, and the logs listed under *If something goes wrong* below. While you use an MK2 or a Mikro this way, a
+Maschine Jam does not work in that copy of Maschine 3.
+
+The stable version, for the Maschine MK1, is [0.1](https://github.com/terracide303/RE-ANIMATOR/releases/latest):
+confirmed working on an iMac and a Mac mini M4, with Maschine 3.6.0 and 3.7.
+
 ## In plain words
 
 **What it does.** Maschine 3 still has the MK1 support built in; Native Instruments switched it off. RE-ANIMATOR:
