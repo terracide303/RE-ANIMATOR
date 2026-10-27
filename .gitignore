@@ -5,6 +5,8 @@
 !/README.md
 !/build.sh
 !/.github/
+!/bridge/
+/bridge/build/
 !/reanimator/
 /reanimator/*
 !/reanimator/reanimator_app.py

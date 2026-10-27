@@ -15,7 +15,7 @@ no longer supports on macOS. Keep your gear out of the e-waste.
 **What it does.** Maschine 3 still has the MK1 support built in; Native Instruments switched it off. RE-ANIMATOR:
 
 1. **makes a copy** of Maschine 3 and switches the MK1 support back on in that copy (two small changes);
-2. **starts a small helper** (MK1 Revive by andy83) that talks to the MK1 over USB: Maschine's screens on the MK1, and
+2. **starts a small helper** (our version of MK1 Revive by andy83) that talks to the MK1 over USB: Maschine's screens on the MK1, and
    the pads, buttons and knobs back to Maschine;
 3. **opens the copy.** When you quit Maschine, the helper stops too.
 
@@ -48,7 +48,7 @@ changes as for the MK1), makes sure NI's agent runs, and opens the copy.
 * It makes a **patched copy** of your installed Maschine 3 in its own folder (by default `~/Applications/RE-ANIMATOR`).
   Your **original Maschine 3 is only read and stays exactly as it is**. The copy switches on Maschine 3's own MK1
   support, which is still in the program but no longer used on macOS.
-* It starts the **MK1 bridge** (MK1 Revive by andy83, included), which stands in for NI's hardware agent and drives the
+* It starts the **MK1 bridge** (our version of MK1 Revive by andy83, included), which stands in for NI's hardware agent and drives the
   MK1: its displays, LEDs, pads, buttons and knobs.
 * When you quit Maschine 3, the bridge stops by itself.
 
@@ -109,7 +109,7 @@ and stopping the bridge), `mk1usb.py` (the one MK1 access RE-ANIMATOR makes itse
 
 ## Credits
 
-* **MK1 bridge: MK1 Revive by andy83** — <https://github.com/andy83-projects/maschine-mk1-revive>. 
+* **MK1 bridge: based on MK1 Revive by andy83** — <https://github.com/andy83-projects/maschine-mk1-revive>. Our changed version is in `bridge/` (what changed: `bridge/ORIGIN.md`). 
 * **libusb** (LGPL-2.1) — <https://libusb.info>.
 * Artwork: our own (`docs/licenses/artwork.md`).
 

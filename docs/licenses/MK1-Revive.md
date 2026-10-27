@@ -10,3 +10,9 @@ author's message is at hand, keep a copy in this folder too.
 
 **Credit (required):** shown on RE-ANIMATOR's main window and in its README / tester guide:
 "MK1 bridge: MK1 Revive by andy83 — github.com/andy83-projects/maschine-mk1-revive".
+
+**Changed version (2026-10-27):** Dennis confirmed that the permission also covers **changing** the bridge.
+RE-ANIMATOR now builds its own version from andy83's v0.3.6 source in `bridge/` (see `bridge/ORIGIN.md` for every
+change); the credit reads "MK1 bridge: based on MK1 Revive by andy83". andy83's released binary stays in
+`reanimator/vendor/` as the fallback.
+
