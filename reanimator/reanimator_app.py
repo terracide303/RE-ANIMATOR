@@ -46,7 +46,7 @@ def detect_controllers():
         if v and pr and int(v.group(1)) == 0x17CC and int(pr.group(1)) in USB_IDS:
             found.append(USB_IDS[int(pr.group(1))])
     return found
-VERSION = '0.2 beta MK2'
+VERSION = '0.3 beta'
 APP_LOG = os.path.expanduser('~/Library/Logs/RE-ANIMATOR-app.log')
 
 
@@ -319,7 +319,7 @@ class App:
             return
         self.bridge_status.config(text='✓  Running' if B.bridge_running() else '✓  Ready', foreground=GOOD)
         bundled = os.path.abspath(path) in (os.path.abspath(B.VENDOR_APP), os.path.abspath(B.VENDOR), os.path.abspath(B.VENDOR_DEV))
-        self.bridge_detail.config(text='Included: MK1 Revive by andy83' if bundled else path.split('/Contents/')[0])
+        self.bridge_detail.config(text='Included: our version of MK1 Revive by andy83' if bundled else path.split('/Contents/')[0])
         self.bridge_button()       # last: for a controller other than the MK1 it greys all of the above out
 
     def pick_app(self):

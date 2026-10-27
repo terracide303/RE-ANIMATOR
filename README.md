@@ -28,8 +28,9 @@ no longer supports on macOS. Keep your gear out of the e-waste.
 * **Fully undoable.** *Clean* deletes the copy; delete the app and everything is as before.
 * **Open:** all the code is here to read.
 
-> **This is the `betatest` branch: version 0.2 adds the Maschine MK2, untested on a Mac so far.** The stable
-> version is on `main`.
+> **This is the `betatest` branch: version 0.3 beta.** It adds the Maschine MK2 (untested on a Mac so far), our own
+> version of the MK1 bridge with pad, light and screen fixes, and RE-ANIMATOR's own startup animation on the MK1's
+> screens. The stable version is on `main`.
 
 ## Maschine MK2 (beta)
 
@@ -110,6 +111,8 @@ and stopping the bridge), `mk1usb.py` (the one MK1 access RE-ANIMATOR makes itse
 ## Credits
 
 * **MK1 bridge: based on MK1 Revive by andy83** — <https://github.com/andy83-projects/maschine-mk1-revive>. Our changed version is in `bridge/` (what changed: `bridge/ORIGIN.md`). 
+* **Pad, light and screen fixes** in our bridge follow faults found by **oskarmust**'s fork of MK1 Revive
+  (<https://github.com/oskarmust/maschine-mk1-revive>); our code is written independently (`bridge/ORIGIN.md`).
 * **libusb** (LGPL-2.1) — <https://libusb.info>.
 * Artwork: our own (`docs/licenses/artwork.md`).
 
