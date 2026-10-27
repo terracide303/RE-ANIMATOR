@@ -93,7 +93,7 @@ def heart_line(d, t, y=59):
     d.line(pts, fill=g(16))
 
 
-SCENE_SECS = {"rufus": 8.0, "morgue": 8.0, "lab": 6.0}
+SCENE_SECS = {"rufus": 8.0, "lab": 6.0}
 
 
 def cat(d, cx, base, pose, glow):
@@ -151,36 +151,6 @@ def scene_rufus(c, t):
         shake = int(2 * math.sin(t * 40)) if t < 5.5 else 0
         cat(d, 120 + shake, 54 - jump, 1, int(t * 6) % 2 == 0)
         ImageDraw.Draw(c).text((W + 40, 18), "HISSS!", font=BIG2, fill=g(31))
-    return None
-
-
-def scene_morgue(c, t):
-    """a body under a sheet over both screens; the sheet twitches; a hand slides out"""
-    d = ImageDraw.Draw(c)
-    d.rectangle([10, 50, 2 * W - 10, 54], fill=g(16))                          # the slab
-    pts = [(30, 50)]                                                            # the sheet: head, chest, feet
-    for x in range(30, 2 * W - 30, 4):
-        bump = 13 * math.exp(-((x - 70) / 20) ** 2) + 6 * math.exp(-((x - 92) / 5) ** 2) \
-            + 4 * math.exp(-((x - 104) / 6) ** 2) + 10 * math.exp(-((x - 200) / 70) ** 2) \
-            + 9 * math.exp(-((x - 430) / 14) ** 2) + 9 * math.exp(-((x - 455) / 14) ** 2)
-        twitch = 2 * math.sin(t * 30 + x / 9) if 2.5 < t < 3.1 or 5.0 < t < 5.4 else 0
-        pts.append((x, 48 - bump + twitch))
-    pts.append((2 * W - 30, 50))
-    d.polygon(pts, fill=g(26))
-    d.line([462, 40, 474, 30], fill=g(31)); d.rectangle([472, 22, 500, 32], outline=g(31))   # toe tag
-    d.text((476, 23), "MK1", font=TINY, fill=g(31))
-    for x in range(2 * W):                                                     # a flat line until the hand moves
-        y = 8 if t < 5.0 else 8 + ecg(x % W, (t * 120) % W) * 0.3
-        d.point([x, int(y)], fill=g(14))
-    if t > 3.6:                                                                 # the hand slides out and twitches
-        u = min(1, (t - 3.6) / 1.2)
-        hx, hy = 236, 44 + int(12 * u)
-        d.line([hx - 6, 42, hx, hy], fill=g(31), width=6)                      # forearm over the slab's edge
-        d.ellipse([hx - 5, hy - 2, hx + 5, hy + 5], fill=g(31))                # the hand
-        for k in range(4):                                                      # fingers, twitching once it's alive
-            bend = int(3 * math.sin(t * 14 + k * 1.3)) if t > 5 else 0
-            fx = hx - 4 + k * 3
-            d.line([fx, hy + 3, fx + bend, hy + 9 - (k == 0) * 2], fill=g(31), width=2)
     return None
 
 
@@ -279,18 +249,25 @@ for f in range(int(total * FPS)):
         elif u < 3.0:                             # it splits: two copies move apart and shrink, the drops fall off
             k = (u - 1.8) / 1.2
             k = k * k * (3 - 2 * k)               # ease in and out
-            word = Image.new("L", (int(big_w) + 4, 50), 0)
-            ImageDraw.Draw(word).text((2, 0), "RE-ANIMATOR", font=big, fill=g(31))
-            word = word.crop(word.getbbox())
+            # From exactly where the big logo stands to exactly where each small one will drip, so nothing jumps
+            # when the drips start (it used to land 10 px lower, as a shrunk picture, then be redrawn: the E
+            # looked broken at the swap). The last 30 % of the way it is the small font's own letters.
+            def glyphs(font):
+                img = Image.new("L", (400, 60), 0)
+                ImageDraw.Draw(img).text((0, 0), "RE-ANIMATOR", font=font, fill=g(31))
+                bb = img.getbbox()
+                return img.crop(bb), bb
+            big_word, big_bb = glyphs(big)
+            small_word, small_bb = glyphs(mid)
             small_w = ImageDraw.Draw(Image.new("L", (1, 1))).textlength("RE-ANIMATOR", font=mid)
-            sc = 1 + (small_w / word.width - 1) * k
-            ww, wh = max(1, int(word.width * sc)), max(1, int(word.height * sc))
-            piece = word.resize((ww, wh), Image.LANCZOS)
-            y0 = int(10 + (17 - 10) * k)
+            start = (int((2 * W - big_w) / 2) + big_bb[0], 6 + big_bb[1], big_word.width, big_word.height)
             from PIL import ImageChops
-            for cx in (W + (W / 2 - W) * k, W + (W * 1.5 - W) * k):
+            for cx in (W / 2, W * 1.5):
+                end = (int(cx - small_w / 2) + small_bb[0], 6 + small_bb[1], small_word.width, small_word.height)
+                x, y, ww, wh = (int(round(a0 + (b0 - a0) * k)) for a0, b0 in zip(start, end))
+                piece = (small_word if k >= 0.7 else big_word).resize((max(1, ww), max(1, wh)), Image.LANCZOS)
                 layer = Image.new("L", canvas.size, 0)
-                layer.paste(piece, (int(cx - ww / 2), y0))
+                layer.paste(piece, (x, y))
                 canvas = ImageChops.lighter(canvas, layer)   # two copies, light on light: one logo that comes apart
             dc = ImageDraw.Draw(canvas)
             random.seed(3)                        # the big logo's drops, falling away
@@ -303,9 +280,9 @@ for f in range(int(total * FPS)):
             v = t - 9.0 - LOOP_SECS
             canvas = Image.new("L", (2 * W, H), 0)
             fx = None
-            for name in ("rufus", "morgue", "lab"):
+            for name in ("rufus", "lab"):
                 if v < SCENE_SECS[name]:
-                    fx = {"rufus": scene_rufus, "morgue": scene_morgue, "lab": scene_lab}[name](canvas, v)
+                    fx = {"rufus": scene_rufus, "lab": scene_lab}[name](canvas, v)
                     break
                 v -= SCENE_SECS[name]
             if fx == "flash":

@@ -41,7 +41,9 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
   * **Screen updates between two sends** kept only the newest rectangle; the pending area now grows to cover them all.
   **Played on Dennis's MK1 with Maschine 3 on 2026-10-27: works fine** (no systematic pad test yet).
 * **2026-10-27 · More scenes while it waits:** after the living logos, "Rufus" (a dead cat on the lab table, the
-  syringe, a flash, the cat alive and hissing), the morgue (a body under a sheet over both screens, toe tag MK1, a
-  twitch, a hand sliding out) and the lab (bubbling flasks, a brain in a jar with sparks). Our own drawing, inspired by
+  syringe, a flash, the cat alive and hissing) and the lab (bubbling flasks, a brain in a jar with sparks). Our own drawing, inspired by
   the film. The bridge now plays the whole file in a loop when it is longer than the 30 s replay.
+* **2026-10-27 · The split lands where the logos drip:** each copy moves and shrinks from the big logo's exact place to
+  the small logo's exact place (it landed 10 px lower as a shrunk picture and was then redrawn, which made the E look
+  broken when the drips started). The morgue scene is gone (Dennis: it looked dumb).
 
