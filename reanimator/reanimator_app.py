@@ -218,9 +218,10 @@ class App:
     def detect(self):
         self.set_app(find_maschine3())
         self.set_dest(DEFAULT_DEST)
+        self.start_probe()
         self.set_bridge(B.find_bridge())
         self.idle()
-        self.root.after(3000, self.poll_usb)
+        self.root.after(1500, self.poll_usb)
 
     def software_key(self):
         return {v: k for k, v in SOFTWARE_NAMES.items()}[self.software.get()]
@@ -240,21 +241,39 @@ class App:
         self.show_connected()
 
     def show_connected(self, found=None):
-        found = detect_controllers() if found is None else found
+        found = getattr(self, 'probe', {}).get('usb', []) if found is None else found
         here = self.model_key() in found
         self.connected.config(text='● connected' if here else ('not connected' + (
             '  (found: %s)' % ', '.join(MODEL_NAMES[m] for m in found) if found else '')),
             foreground=GOOD if here else GREY)
 
+    def bridge_up(self):
+        """whether the bridge runs, as the background probe last saw it: the window never waits for pgrep"""
+        return getattr(self, 'probe', {}).get('bridge', False)
+
+    def start_probe(self):
+        """USB and the bridge are checked on a thread of their own (ioreg and pgrep, about 50 ms together); the
+        window reads the last answer. Run on the window's thread they made the dropdowns feel sticky."""
+        self.probe = {'usb': detect_controllers(), 'bridge': B.bridge_running()}
+
+        def loop():
+            while True:
+                time.sleep(1.5)
+                try:
+                    self.probe = {'usb': detect_controllers(), 'bridge': B.bridge_running()}
+                except Exception:  # noqa: BLE001 -- a failed probe leaves the last answer
+                    continue
+        threading.Thread(target=loop, daemon=True).start()
+
     def poll_usb(self):
         """every few seconds: the connected label, and the dropdown follows what is plugged in until the user
         has picked a model themselves"""
-        found = detect_controllers()
+        found = getattr(self, 'probe', {}).get('usb', [])
         if found and not self.model_chosen and self.model_key() not in found:
             self.model.set(MODEL_NAMES[found[0]])
             self.idle()
         self.show_connected(found)
-        self.root.after(3000, self.poll_usb)
+        self.root.after(1500, self.poll_usb)
 
     def idle(self):
         self.start_button.state(['!disabled'])
@@ -307,7 +326,7 @@ class App:
     def bridge_button(self):
         """the bridge button says what it will do: Stop bridge while it runs, Start bridge otherwise. The bridge
         is only for the MK1: for another controller it is greyed out (but a bridge left running can be stopped)"""
-        running = B.bridge_running()
+        running = self.bridge_up()
         mk1 = not hasattr(self, 'model') or self.model_key() in NEEDS_BRIDGE
         self.stop_button.config(text='Stop bridge' if running else ('Start bridge' if mk1 else 'Bridge: MK1 only'),
                                 command=self.stop_bridge if running else self.start_bridge)
@@ -345,7 +364,7 @@ class App:
             self.bridge_status.config(text='✗  Not found', foreground=BAD)
             self.bridge_detail.config(text='')
             return
-        self.bridge_status.config(text='✓  Running' if B.bridge_running() else '✓  Ready', foreground=GOOD)
+        self.bridge_status.config(text='✓  Running' if self.bridge_up() else '✓  Ready', foreground=GOOD)
         bundled = os.path.abspath(path) in (os.path.abspath(B.VENDOR_APP), os.path.abspath(B.VENDOR), os.path.abspath(B.VENDOR_DEV))
         self.bridge_detail.config(text='Included: our version of MK1 Revive by andy83' if bundled else path.split('/Contents/')[0])
         self.bridge_button()       # last: for a controller other than the MK1 it greys all of the above out
