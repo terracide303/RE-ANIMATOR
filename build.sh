@@ -43,11 +43,16 @@ rm -rf "$B/work" "$ROOT/dist/RE-ANIMATOR.app"
     --hidden-import bridge --hidden-import mk1usb --hidden-import patch_maschine3_macos \
     "$SRC/reanimator_app.py"
 
-# The bridge goes in after packaging, byte for byte as released (PyInstaller would re-sign it); then only the outer
-# app is signed again (ad hoc).
+# The bridge goes in after packaging (PyInstaller would re-sign it): OUR build from bridge/ (MK1 Revive by andy83,
+# changed, see bridge/ORIGIN.md); andy83's released binary in reanimator/vendor/ only if ours cannot be built.
 APP="$ROOT/dist/RE-ANIMATOR.app"
 mkdir -p "$APP/Contents/Resources/vendor"
-cp "$BRIDGE" "$APP/Contents/Resources/vendor/mk1-bridge"
+if "$ROOT/bridge/build.sh"; then
+    cp "$ROOT/bridge/build/mk1-bridge" "$APP/Contents/Resources/vendor/mk1-bridge"
+else
+    echo "our bridge did not build: using andy83's released binary"
+    cp "$BRIDGE" "$APP/Contents/Resources/vendor/mk1-bridge"
+fi
 codesign -f -s - "$APP"
 codesign --verify --deep --strict "$APP"
 

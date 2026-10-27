@@ -107,7 +107,7 @@ class App:
         words.pack(side='left', padx=(12, 0))
         ttk.Label(words, text='Old controllers, new life: keep your gear out of the e-waste.',
                   foreground=GREY, font=('Helvetica', 12, 'italic')).pack(anchor='w')
-        ttk.Label(words, text='MK1 bridge: MK1 Revive by andy83 — github.com/andy83-projects/maschine-mk1-revive',
+        ttk.Label(words, text='MK1 bridge: based on MK1 Revive by andy83 — github.com/andy83-projects/maschine-mk1-revive',
                   foreground=GREY, font=('Helvetica', 11)).pack(anchor='w', pady=(4, 0))
 
         self.opened = tk.BooleanVar(value=False)
