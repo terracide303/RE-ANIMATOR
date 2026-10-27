@@ -39,5 +39,5 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
   * **Lights**: LEDs Maschine switches off (value 0) were not copied, so they kept their old level.
   * **Black screen updates** were skipped, so cleared areas kept old pixels.
   * **Screen updates between two sends** kept only the newest rectangle; the pending area now grows to cover them all.
-  **Not yet tested on the MK1** (Dennis: ship and let testers tell us).
+  **Played on Dennis's MK1 with Maschine 3 on 2026-10-27: works fine** (no systematic pad test yet).
 
