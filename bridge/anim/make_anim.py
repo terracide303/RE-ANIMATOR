@@ -93,6 +93,126 @@ def heart_line(d, t, y=59):
     d.line(pts, fill=g(16))
 
 
+SCENE_SECS = {"rufus": 8.0, "morgue": 8.0, "lab": 6.0}
+
+
+def cat(d, cx, base, pose, glow):
+    """Rufus, side view. pose 0 = lying dead (X eyes), 1 = arched back, fur up, eyes glowing"""
+    w = g(31)
+    if pose == 0:
+        d.ellipse([cx - 26, base - 12, cx + 18, base], fill=w)                 # body flat on the table
+        d.ellipse([cx + 12, base - 14, cx + 30, base - 1], fill=w)              # head
+        d.polygon([(cx + 15, base - 12), (cx + 18, base - 20), (cx + 21, base - 12)], fill=w)
+        d.polygon([(cx + 22, base - 12), (cx + 26, base - 19), (cx + 28, base - 11)], fill=w)
+        for ex in (cx + 20, cx + 25):                                           # X eyes
+            d.line([ex - 2, base - 10, ex + 1, base - 7], fill=0); d.line([ex - 2, base - 7, ex + 1, base - 10], fill=0)
+        d.line([cx - 26, base - 4, cx - 44, base - 2], fill=w, width=2)         # limp tail
+        for lx in (cx - 14, cx - 4, cx + 4):
+            d.line([lx, base - 2, lx + 6, base + 2], fill=w, width=2)           # legs out sideways
+    else:
+        d.chord([cx - 26, base - 34, cx + 16, base + 6], 180, 360, fill=w)      # arched back
+        d.rectangle([cx - 22, base - 14, cx + 12, base - 8], fill=w)
+        for lx in (cx - 20, cx - 13, cx + 2, cx + 9):
+            d.line([lx, base - 9, lx, base], fill=w, width=3)                   # stiff legs
+        for i in range(9):                                                      # fur on end
+            x = cx - 22 + i * 4; y = base - 30 + abs(i - 4) * 2
+            d.line([x, y, x - 1, y - 4], fill=w)
+        d.ellipse([cx + 10, base - 30, cx + 30, base - 12], fill=w)             # head, up
+        d.polygon([(cx + 12, base - 27), (cx + 14, base - 37), (cx + 19, base - 29)], fill=w)
+        d.polygon([(cx + 22, base - 29), (cx + 27, base - 37), (cx + 29, base - 26)], fill=w)
+        for ex in (cx + 17, cx + 24):                                           # glowing eyes
+            d.ellipse([ex - 2, base - 25, ex + 2, base - 21], fill=0)
+            d.point([ex, base - 23], fill=g(31) if glow else g(10))
+        d.line([cx + 18, base - 16, cx + 24, base - 16], fill=0)                # bared teeth
+        for k in range(4): d.line([cx + 18 + k * 2, base - 16, cx + 19 + k * 2, base - 14], fill=0)
+        pts = [(cx - 26, base - 12)]                                            # tail up, bristling
+        for k in range(1, 7): pts.append((cx - 26 - k * 3 + (k % 2) * 2, base - 12 - k * 5))
+        d.line(pts, fill=w, width=3)
+
+
+def scene_rufus(c, t):
+    """the cat on the lab table: dead, the syringe, a jolt, alive and furious"""
+    d = ImageDraw.Draw(c)
+    d.rectangle([20, 54, 230, 57], fill=g(20)); d.line([30, 57, 30, 64], fill=g(20)); d.line([220, 57, 220, 64], fill=g(20))
+    alive = t > 4.2
+    if not alive:
+        cat(d, 120, 54, 0, False)
+        d.text((10, 4), "RUFUS", font=SMALL, fill=g(18))
+    if 1.0 < t < 4.2:                                                            # the syringe on the right screen
+        u = (t - 1.0) / 3.2
+        sx = W + 20 + int(30 * min(1, u * 2))
+        syr = Image.new("L", (W, H), 0)
+        syringe(ImageDraw.Draw(syr), 10 + int(30 * min(1, u * 2)), 30, 1 - max(0, u - 0.4) / 0.6, max(0, u - 0.4) / 0.6)
+        c.paste(syr.transpose(Image.FLIP_LEFT_RIGHT), (W, 0))                    # needle pointing at the cat
+    if 4.0 < t < 4.4:                                                            # the jolt
+        return "flash"
+    if alive:
+        jump = max(0, int(14 * math.sin(min(1, (t - 4.2) / 0.6) * math.pi))) if t < 4.8 else 0
+        shake = int(2 * math.sin(t * 40)) if t < 5.5 else 0
+        cat(d, 120 + shake, 54 - jump, 1, int(t * 6) % 2 == 0)
+        ImageDraw.Draw(c).text((W + 40, 18), "HISSS!", font=BIG2, fill=g(31))
+    return None
+
+
+def scene_morgue(c, t):
+    """a body under a sheet over both screens; the sheet twitches; a hand slides out"""
+    d = ImageDraw.Draw(c)
+    d.rectangle([10, 50, 2 * W - 10, 54], fill=g(16))                          # the slab
+    pts = [(30, 50)]                                                            # the sheet: head, chest, feet
+    for x in range(30, 2 * W - 30, 4):
+        bump = 13 * math.exp(-((x - 70) / 20) ** 2) + 6 * math.exp(-((x - 92) / 5) ** 2) \
+            + 4 * math.exp(-((x - 104) / 6) ** 2) + 10 * math.exp(-((x - 200) / 70) ** 2) \
+            + 9 * math.exp(-((x - 430) / 14) ** 2) + 9 * math.exp(-((x - 455) / 14) ** 2)
+        twitch = 2 * math.sin(t * 30 + x / 9) if 2.5 < t < 3.1 or 5.0 < t < 5.4 else 0
+        pts.append((x, 48 - bump + twitch))
+    pts.append((2 * W - 30, 50))
+    d.polygon(pts, fill=g(26))
+    d.line([462, 40, 474, 30], fill=g(31)); d.rectangle([472, 22, 500, 32], outline=g(31))   # toe tag
+    d.text((476, 23), "MK1", font=TINY, fill=g(31))
+    for x in range(2 * W):                                                     # a flat line until the hand moves
+        y = 8 if t < 5.0 else 8 + ecg(x % W, (t * 120) % W) * 0.3
+        d.point([x, int(y)], fill=g(14))
+    if t > 3.6:                                                                 # the hand slides out and twitches
+        u = min(1, (t - 3.6) / 1.2)
+        hx, hy = 236, 44 + int(12 * u)
+        d.line([hx - 6, 42, hx, hy], fill=g(31), width=6)                      # forearm over the slab's edge
+        d.ellipse([hx - 5, hy - 2, hx + 5, hy + 5], fill=g(31))                # the hand
+        for k in range(4):                                                      # fingers, twitching once it's alive
+            bend = int(3 * math.sin(t * 14 + k * 1.3)) if t > 5 else 0
+            fx = hx - 4 + k * 3
+            d.line([fx, hy + 3, fx + bend, hy + 9 - (k == 0) * 2], fill=g(31), width=2)
+    return None
+
+
+def scene_lab(c, t):
+    """flasks bubbling on the left; a brain in a jar with electrodes and sparks on the right"""
+    d = ImageDraw.Draw(c)
+    flask(d, 50, 60, t, 0); flask(d, 125, 60, t, 1); flask(d, 200, 60, t, 2)
+    jx = W + 128
+    d.rectangle([jx - 30, 10, jx + 30, 62], outline=g(31))                     # the jar
+    d.rectangle([jx - 34, 6, jx + 34, 10], fill=g(20))                          # the lid
+    d.ellipse([jx - 24, 18, jx + 24, 50], fill=g(20))                          # the brain
+    d.ellipse([jx - 6, 44, jx + 8, 56], fill=g(16))                            # brain stem
+    d.line([jx, 19, jx, 49], fill=g(8))                                         # the two halves
+    for k in range(5):                                                          # folds
+        y0 = 22 + k * 6
+        pts = [(jx - 22 + i * 4, y0 + int(2 * math.sin(i * 1.7 + k))) for i in range(12)]
+        d.line(pts, fill=g(8))
+    for b in range(3):                                                          # bubbles in the fluid
+        by = 60 - int(((t * 0.7 + b * 0.33) % 1) * 48)
+        d.point([jx - 20 + b * 18, by], fill=g(26))
+    pulse = 0.5 + 0.5 * math.sin(t * 6)
+    d.line([jx - 22, 50, jx + 22, 50], fill=g(int(14 + 12 * pulse)))
+    for side in (-1, 1):                                                        # electrodes and wires
+        ex = jx + side * 46
+        d.line([jx + side * 20, 28, ex, 18], fill=g(24)); d.rectangle([ex - 3, 14, ex + 3, 22], fill=g(31))
+    if int(t * 5) % 4 == 0:                                                     # a spark, now and then
+        zx = jx - 40; pts = [(zx, 18)]
+        for k in range(1, 7): pts.append((zx + k * 13, 18 + (8 if k % 2 else -4)))
+        d.line(pts, fill=g(31), width=1)
+    return None
+
+
 def flask(d, cx, base, t, k):
     """a round lab flask with bubbling liquid"""
     d.ellipse([cx - 18, base - 34, cx + 18, base + 2], outline=g(31))
@@ -110,8 +230,11 @@ frames = []
 raw = []
 big = ImageFont.truetype(FONT, 34, index=8)
 small = ImageFont.truetype(FONT, 11, index=8)
+SMALL = small
+TINY = ImageFont.truetype(FONT, 8, index=8)
+BIG2 = ImageFont.truetype(FONT, 26, index=8)
 mid = ImageFont.truetype(FONT, 22, index=8)
-total = 9.0 + 4.4     # intro until 9.0 s, then the 4.4 s loop
+total = 9.0 + 4.4 + sum(SCENE_SECS.values())   # the intro, the living logos, then the scenes
 for f in range(int(total * FPS)):
     t = f / FPS
     a, b, da, db = screens()
@@ -176,6 +299,18 @@ for f in range(int(total * FPS)):
                 L = random.randint(4, 18)
                 fy = 44 + L + int(120 * (u - 1.8) ** 2)
                 if fy < H: dc.ellipse([x - 2, fy - 2, x + 2, fy + 2], fill=g(31))
+        elif t >= 9.0 + LOOP_SECS:                # the scenes after the living logos, then the bridge starts over
+            v = t - 9.0 - LOOP_SECS
+            canvas = Image.new("L", (2 * W, H), 0)
+            fx = None
+            for name in ("rufus", "morgue", "lab"):
+                if v < SCENE_SECS[name]:
+                    fx = {"rufus": scene_rufus, "morgue": scene_morgue, "lab": scene_lab}[name](canvas, v)
+                    break
+                v -= SCENE_SECS[name]
+            if fx == "flash":
+                canvas = Image.new("L", (2 * W, H), g(31))
+            dc = ImageDraw.Draw(canvas)
         elif t >= 9.0:                            # the loop: living logos, a heartbeat, a pulse on each beat
             v = t - 9.0
             small_w = dc.textlength("RE-ANIMATOR", font=mid)
@@ -201,7 +336,7 @@ for f in range(int(total * FPS)):
     out = Image.new("L", (2 * W + 30, H + 20), g(4))
     out.paste(a, (10, 10)); out.paste(b, (W + 20, 10))
     frames.append(out.resize((out.width * 3, out.height * 3), Image.NEAREST).convert("P"))
-LOOP_START = int(9.0 * FPS)
+LOOP_START = int(9.0 * FPS)   # (the bridge plays the whole file in a loop now; see main.c)
 
 
 def rle(img):

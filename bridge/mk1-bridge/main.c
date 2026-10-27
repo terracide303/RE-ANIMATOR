@@ -1271,8 +1271,10 @@ static void start_cat_animation(bridge_t *br)
                                   step * NSEC_PER_MSEC, 1 * NSEC_PER_MSEC);
         dispatch_source_set_event_handler(g_cat_anim_timer, ^{
             if (!g_running || !br->usb) return;
-            // the intro once, the loop for REANIM_REPLAY_SECS, then the intro again, for as long as it waits
+            // the intro, then the loop until REANIM_REPLAY_SECS have passed -- or, when the file's loop is longer than
+            // that (it now holds several scenes), the whole file -- then from the start again, while it waits
             int cycle = g_anim.loop + REANIM_REPLAY_SECS * g_anim.fps;
+            if (cycle < g_anim.count) cycle = g_anim.count;
             int i = g_cat_anim_frame++ % cycle;
             if (i >= g_anim.loop) i = g_anim.loop + (i - g_anim.loop) % (g_anim.count - g_anim.loop);
             uint8_t left_fb[DISPLAY_FB_BYTES], right_fb[DISPLAY_FB_BYTES];
