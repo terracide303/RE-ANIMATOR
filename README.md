@@ -10,10 +10,10 @@ no longer supports on macOS. Keep your gear out of the e-waste.
 
 > **Beta (0.1).** Unofficial; not made, supported or endorsed by Native Instruments. Use at your own risk.
 
-## Testers wanted: 0.4 beta
+## Testers wanted: 0.4.1 beta
 
 **Have a Maschine MK2, Mikro MK1 or Mikro MK2? Help test the next version.**
-[**Download RE-ANIMATOR 0.4 beta**](https://github.com/terracide303/RE-ANIMATOR/releases/tag/v0.4-beta) (Apple Silicon).
+[**Download RE-ANIMATOR 0.4.1 beta**](https://github.com/terracide303/RE-ANIMATOR/releases/tag/v0.4.1-beta) (Apple Silicon).
 It adds:
 
 * **Maschine MK2, Mikro MK1 and Mikro MK2** in Maschine 3: no bridge needed, NI's own agent drives them. Not yet
