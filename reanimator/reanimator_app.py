@@ -26,8 +26,10 @@ DEFAULT_APP = '/Applications/Native Instruments/Maschine 3/Maschine 3.app'
 DEFAULT_DEST = os.path.expanduser('~/Applications/RE-ANIMATOR')
 BUNDLE_ID = 'com.native-instruments.Maschine 3'
 GOOD, BAD, NOTE, GREY = '#1a7f37', '#c62828', '#9a6700', '#6e6e73'
-MODEL_NAMES = {'mk1': 'Maschine MK1'}
-VERSION = '0.1 beta'
+MODEL_NAMES = {'mk1': 'Maschine MK1', 'mk2': 'Maschine MK2 (beta)'}
+# The MK1 needs the MK1 Revive bridge; the MK2 is driven by NI's own NIHardwareAgent, which still has its class.
+NEEDS_BRIDGE = {'mk1'}
+VERSION = '0.2 beta MK2'
 APP_LOG = os.path.expanduser('~/Library/Logs/RE-ANIMATOR-app.log')
 
 
@@ -291,7 +293,7 @@ class App:
 
     # --- START, stop, clean --------------------------------------------------------------------------------------
     def start(self):
-        if not self.app_path or not self.bridge:
+        if not self.app_path or (self.model_key() in NEEDS_BRIDGE and not self.bridge):
             self.idle()
             return
         stop_mk1d = False
@@ -316,8 +318,20 @@ class App:
                 step('Making the patched copy (about a minute; your original stays unchanged)…')
                 copy = P.patch(app, dest, model, force=True)
                 log.append('Patched copy: %s' % copy)
-            step('Starting the MK1 bridge…')
-            log += self.bridge.start(stop_mk1d)
+            if model in NEEDS_BRIDGE:
+                step('Starting the MK1 bridge…')
+                log += self.bridge.start(stop_mk1d)
+            else:
+                # NI's own agent drives this controller; the MK1 bridge would hold the agent's port, so it goes
+                if B.bridge_running() and self.bridge:
+                    step('Stopping the MK1 bridge (NI\'s own agent drives the %s)…' % MODEL_NAMES[model])
+                    log += self.bridge.stop()
+                if not B.ni_agent_running():
+                    step('Starting NI\'s hardware agent…')
+                    subprocess.run(['open', '-g', B.NI_AGENT_APP])
+                    log.append('Started NIHardwareAgent.')
+                else:
+                    log.append('NIHardwareAgent is running.')
             globals()['log'](' / '.join(log))
             step('Opening Maschine 3…')
             subprocess.run(['open', copy])
@@ -331,14 +345,17 @@ class App:
                 self.root.after(0, lambda: (self.tell('✗  Could not start: %s\nYour original Maschine 3 was not '
                                                       'changed.' % e, BAD), self.start_button.state(['!disabled'])))
                 return
-            self.root.after(0, lambda: (self.set_dest(self.dest_path), self.set_bridge(self.bridge.path), self.note(log),
-                                        self.tell('✓  Running. Maschine 3 connects to the MK1 after its plugin scan.\n'
-                                                  'Quit Maschine 3 when you are done: the bridge stops by itself.',
-                                                  GOOD)))
-            self.watch(copy)
+            done = ('✓  Running. Maschine 3 connects to the MK1 after its plugin scan.\n'
+                    'Quit Maschine 3 when you are done: the bridge stops by itself.' if model in NEEDS_BRIDGE else
+                    '✓  Running (BETA). Maschine 3 connects to the MK2 through NI\'s own agent after its plugin scan.\n'
+                    'Please tell us what works: screens, pads, buttons, knobs. A Maschine Jam does not work meanwhile.')
+            self.root.after(0, lambda: (self.set_dest(self.dest_path),
+                                        self.set_bridge(self.bridge.path) if self.bridge else None, self.note(log),
+                                        self.tell(done, GOOD)))
+            self.watch(copy, model)
         threading.Thread(target=run, daemon=True).start()
 
-    def watch(self, copy):
+    def watch(self, copy, model='mk1'):
         """waits for the copy to run and quit, then stops the bridge"""
         try:
             log('watch: waiting for %s' % copy)
@@ -351,6 +368,11 @@ class App:
             log('watch: running = %s' % B.copy_running(copy))
             while B.copy_running(copy):
                 time.sleep(1)
+            if model not in NEEDS_BRIDGE:
+                log('watch: Maschine 3 quit (%s: no bridge to stop)' % model)
+                self.root.after(0, lambda: (self.start_button.state(['!disabled']),
+                                            self.tell('Maschine 3 has quit. Press START to play again.', GREY)))
+                return
             log('watch: Maschine 3 quit; stopping the bridge')
             self.root.after(0, lambda: self.tell('Maschine 3 has quit: stopping the bridge…', GREY))
             out = self.bridge.stop() if self.bridge else []

@@ -24,6 +24,9 @@ import sys
 
 MODELS = {  # model -> (subscription class as mangled in the symbols, device ID)
     'mk1': ('MaschineMK112Subscription', 0x0808),
+    # BETA: the MK2 is driven by NI's own NIHardwareAgent (it still has the MK2 class), so it needs no bridge;
+    # the patch is the same two changes as the MK1's. Like the Windows MK2 patch, it takes the Jam's slot.
+    'mk2': ('MaschineMK212Subscription', 0x1140),
 }
 JAM, JAM_PID = 'MaschineJam12Subscription', 0x1500
 SUB = 'ControllerSubscriptionINS_4NHL2'           # NI::MASCOMMON::HW::ControllerSubscription<NI::NHL2::<model>::Subscription, ...>

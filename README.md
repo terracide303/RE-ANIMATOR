@@ -28,6 +28,21 @@ no longer supports on macOS. Keep your gear out of the e-waste.
 * **Fully undoable.** *Clean* deletes the copy; delete the app and everything is as before.
 * **Open:** all the code is here to read.
 
+> **This is the `betatest` branch: version 0.2 adds the Maschine MK2, untested on a Mac so far.** The stable
+> version is on `main`.
+
+## Maschine MK2 (beta)
+
+The MK2 works differently from the MK1, and more simply: **Native Instruments' own hardware agent still knows the
+MK2**, so it needs no bridge. RE-ANIMATOR makes a patched copy of Maschine 3 for the MK2 (the same two small
+changes as for the MK1), makes sure NI's agent runs, and opens the copy.
+
+* Choose **Maschine MK2 (beta)** under *Options → Controller*, then press START.
+* **A Maschine Jam does not work while you use the MK2 this way**: the MK2 takes the Jam's place in Maschine 3 (the
+  same trade-off as the known Windows MK2 patch). Your original Maschine 3 still runs the Jam as before.
+* Nobody has confirmed this on a Mac yet. **Beta testers: please report** what works (screens, pads, buttons,
+  knobs, LEDs) and what does not, with your macOS and Maschine 3 versions and the logs listed below.
+
 ## How it works
 
 * It makes a **patched copy** of your installed Maschine 3 in its own folder (by default `~/Applications/RE-ANIMATOR`).
