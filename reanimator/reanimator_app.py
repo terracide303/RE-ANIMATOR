@@ -341,9 +341,22 @@ class App:
             self.set_bridge(path if os.path.isfile(path) else None)
             self.idle()
 
+    def copies(self):
+        """find_copies, remembered until the copy folder changes: it reads every copy (265 ms measured) and the
+        main screen asked for it two or three times per change of the dropdown, which made the window lag"""
+        try:
+            stamp = (self.dest_path, os.stat(self.dest_path).st_mtime_ns,
+                     tuple(os.stat(os.path.join(self.dest_path, n)).st_mtime_ns
+                           for n in sorted(os.listdir(self.dest_path)) if n.endswith('.app')))
+        except OSError:
+            stamp = (self.dest_path, None, ())
+        if getattr(self, '_copies', (None,))[0] != stamp:
+            self._copies = (stamp, P.find_copies(self.dest_path) if stamp[1] is not None else [])
+        return self._copies[1]
+
     def current_copy(self):
         """the patched copy for this controller, if it was made from the Maschine 3 version installed now"""
-        for path, model in P.find_copies(self.dest_path):
+        for path, model in self.copies():
             if (model == self.model_key() and self.app_path and P.app_version(path) == P.app_version(self.app_path)
                     and os.path.basename(P.executable(path)) == P.COPY_EXE):   # older copies: made again
                 return path
