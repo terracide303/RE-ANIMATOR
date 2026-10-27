@@ -97,8 +97,8 @@ def heart_line(d, t, y=59):
 
 
 SCENE_SECS = {"rufus": 8.0, "lab": 6.0}
-LOGO_SECS = 2 * LOOP_SECS     # the logos stay 8.8 s: two whole drip cycles, so the drips join up at every cut
-GLOW_SECS = LOGO_SECS / 3     # three slow glows per stretch of logos
+LOGO_SECS = 3 * LOOP_SECS     # the logos stay 13.2 s: three whole drip cycles, so the drips join up at every cut
+GLOW_SECS = LOGO_SECS / 4     # four slow glows per stretch of logos
 SEGMENTS = [("logos", LOGO_SECS), ("rufus", SCENE_SECS["rufus"]), ("logos", LOGO_SECS), ("lab", SCENE_SECS["lab"])]
 
 
@@ -203,6 +203,28 @@ def scene_lab(c, t):
     return None
 
 
+SCROLL_TEXT = ("*** RE-ANIMATOR ***   OLD CONTROLLERS, NEW LIFE   ***   THIS MASCHINE IS NOT E-WASTE: ITS MAKER "
+               "STOPPED SUPPORTING IT, RE-ANIMATOR WAKES IT UP AGAIN   ***   MASCHINE 3 AND 2 - SCREENS, PADS, KNOBS "
+               "AND LIGHTS ALL BACK   ***   KEEP YOUR GEAR, KEEP MAKING MUSIC   ***   GREETINGS TO ANDY83 AND "
+               "OSKARMUST   ***          ")
+SCROLL_SPEED = 80             # pixels a second: 4 a frame, the speed of an Amiga intro's scroller
+
+
+def sine_scroller(canvas, st, font):
+    """an Amiga-style sine scroller over both screens: the text runs right to left, each letter on a sine wave,
+    its brightness shimmering. st = seconds of scrolling so far (it carries on from one stretch of logos to the next)"""
+    d = ImageDraw.Draw(canvas)
+    widths = [d.textlength(ch, font=font) for ch in SCROLL_TEXT]
+    total = sum(widths)
+    x = 2 * W - (st * SCROLL_SPEED) % (total + 2 * W)          # it enters from the right and runs out on the left
+    for ch, w in zip(SCROLL_TEXT, widths):
+        if -w < x < 2 * W and ch != " ":
+            y = 46 + 6 * math.sin(x / 26 + st * 4)
+            shade = int(22 + 9 * (0.5 + 0.5 * math.sin(x / 40 - st * 6)))
+            d.text((x, y - 8), ch, font=font, fill=g(shade))
+        x += w
+
+
 def flask(d, cx, base, t, k):
     """a round lab flask with bubbling liquid"""
     d.ellipse([cx - 18, base - 34, cx + 18, base + 2], outline=g(31))
@@ -223,6 +245,7 @@ small = ImageFont.truetype(FONT, 11, index=8)
 SMALL = small
 TINY = ImageFont.truetype(FONT, 8, index=8)
 BIG2 = ImageFont.truetype(FONT, 26, index=8)
+SCROLL_FONT = ImageFont.truetype(FONT, 12, index=0)
 mid = ImageFont.truetype(FONT, 24, index=0)   # Bold, not Heavy: at this size Heavy closed the E's gaps
 total = 9.0 + sum(secs for _, secs in SEGMENTS)   # the intro, then the logos between every scene
 for f in range(int(total * FPS)):
@@ -298,23 +321,20 @@ for f in range(int(total * FPS)):
                 if fy < H: dc.ellipse([x - 2, fy - 2, x + 2, fy + 2], fill=g(31))
         elif t >= 9.0:                            # after the intro: the logos, a scene, the logos, a scene ...
             v = t - 9.0
-            seg = None
+            seg, scrolled = None, 0.0
             for name, secs in SEGMENTS:
                 if v < secs:
                     seg = name
                     break
                 v -= secs
+                if name == "logos":
+                    scrolled += secs                  # the scroller carries on where the last stretch left it
             if seg == "logos":                    # living logos that glow slowly, and a small heartbeat
                 small_w = dc.textlength("RE-ANIMATOR", font=mid)
                 glow = 0.5 + 0.5 * math.cos(2 * math.pi * v / GLOW_SECS)          # 1 -> 0 -> 1: starts as bright as the intro ends
                 for cx in (W / 2, W * 1.5):
                     living_logo(dc, int(cx - small_w / 2), "RE-ANIMATOR", mid, v, int(14 + 17 * glow))
-                from PIL import ImageChops
-                for half in (0, 1):               # the heartbeat, light over whatever is there (falling drops)
-                    layer = Image.new("L", canvas.size, 0)
-                    heart_line(ImageDraw.Draw(layer), v)
-                    if half: layer = ImageChops.offset(layer, W, 0)
-                    canvas = ImageChops.lighter(canvas, layer)
+                sine_scroller(canvas, scrolled + v, SCROLL_FONT)    # under the logos, over both screens
                 dc = ImageDraw.Draw(canvas)
             else:
                 canvas = Image.new("L", (2 * W, H), 0)

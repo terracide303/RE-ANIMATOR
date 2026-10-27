@@ -52,4 +52,7 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
   removed.
 * **2026-10-27 · The logos glow slowly and come back between the scenes:** after the intro the file runs logos (8.8 s,
   three slow glows) -> Rufus -> logos -> the lab, about 41 s, then the bridge starts it over.
+* **2026-10-27 · An Amiga-style sine scroller** runs under the glowing logos over both screens: what RE-ANIMATOR is,
+  how it keeps gear out of the e-waste and brings it back to Maschine 3 and 2, and greetings to andy83 and oskarmust.
+  It carries on from one stretch of logos to the next (13.2 s each now); one round of the file is about 49 s.
 
