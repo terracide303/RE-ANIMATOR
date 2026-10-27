@@ -44,6 +44,12 @@ changes as for the MK1), makes sure NI's agent runs, and opens the copy.
 * Nobody has confirmed this on a Mac yet. **Beta testers: please report** what works (screens, pads, buttons,
   knobs, LEDs) and what does not, with your macOS and Maschine 3 versions and the logs listed below.
 
+## Maschine 2 (beta)
+
+Maschine 2 still knows the MK1 and the MK2, so it needs **no patch**. Choose **Software: Maschine 2 (no patch)** on
+the main screen and press START: for the MK1 RE-ANIMATOR starts the bridge and opens Maschine 2 as installed, and
+stops the bridge when you quit it; the MK2 runs on NI's own agent, as NI made it.
+
 ## How it works
 
 * It makes a **patched copy** of your installed Maschine 3 in its own folder (by default `~/Applications/RE-ANIMATOR`).

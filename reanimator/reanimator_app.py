@@ -30,6 +30,9 @@ GOOD, BAD, NOTE, GREY = '#1a7f37', '#c62828', '#9a6700', '#6e6e73'
 MODEL_NAMES = {'mk1': 'Maschine MK1', 'mk2': 'Maschine MK2 (beta)'}
 # The MK1 needs the MK1 Revive bridge; the MK2 is driven by NI's own NIHardwareAgent, which still has its class.
 NEEDS_BRIDGE = {'mk1'}
+# The software to run: Maschine 3 (a patched copy) or Maschine 2 (as installed: it still knows the MK1 and MK2)
+SOFTWARE_NAMES = {'m3': 'Maschine 3', 'm2': 'Maschine 2 (no patch)'}
+MASCHINE2_APP = '/Applications/Native Instruments/Maschine 2/Maschine 2.app'
 USB_IDS = {0x0808: 'mk1', 0x1140: 'mk2'}            # Native Instruments (vendor 0x17CC) product IDs
 
 
@@ -116,8 +119,16 @@ class App:
         box.bind('<<ComboboxSelected>>', lambda e: (setattr(self, 'model_chosen', True), self.idle()))
         self.connected = tk.Label(ctl, text='', font=('Helvetica', 12), foreground=GREY)
         self.connected.pack(side='left')
-        self.summary = tk.Label(top, text='', font=('Helvetica', 14), anchor='w', justify='left')
-        self.summary.pack(side='top', anchor='w', pady=(0, 10))
+        sw = ttk.Frame(top)
+        sw.pack(side='top', anchor='w', pady=(0, 10))
+        tk.Label(sw, text='Software:', font=('Helvetica', 14)).pack(side='left')
+        self.software = tk.StringVar(value=SOFTWARE_NAMES['m3'])
+        swbox = ttk.Combobox(sw, textvariable=self.software, values=[SOFTWARE_NAMES['m3'], SOFTWARE_NAMES['m2']],
+                             state='readonly', width=20, font=('Helvetica', 14))
+        swbox.pack(side='left', padx=(8, 8))
+        swbox.bind('<<ComboboxSelected>>', lambda e: self.idle())
+        self.summary = tk.Label(sw, text='', font=('Helvetica', 13), anchor='w', justify='left')
+        self.summary.pack(side='left')
         main = ttk.Frame(top)
         main.pack(side='top', anchor='w')
         style = ttk.Style()
@@ -209,13 +220,20 @@ class App:
         self.idle()
         self.root.after(3000, self.poll_usb)
 
+    def software_key(self):
+        return {v: k for k, v in SOFTWARE_NAMES.items()}[self.software.get()]
+
     def show_summary(self):
-        """the controller and the Maschine version, on the main screen"""
-        software = ('Maschine 3 %s' % P.app_version(self.app_path)) if self.app_path else 'Maschine 3 not found'
-        copy = ' · patched copy ready' if self.app_path and self.current_copy() else (
-            ' · copy made on START' if self.app_path else '')
-        self.summary.config(text='Software: %s%s' % (software, copy),
-                            foreground='black' if self.app_path else BAD)
+        """the Maschine version and what START will do, beside the software choice"""
+        if self.software_key() == 'm2':
+            here = os.path.isdir(MASCHINE2_APP)
+            self.summary.config(text=('%s · runs as installed' % P.app_version(MASCHINE2_APP)) if here
+                                else 'not found in /Applications/Native Instruments', foreground='black' if here else BAD)
+        else:
+            text = P.app_version(self.app_path) if self.app_path else 'not found'
+            copy = ' · patched copy ready' if self.app_path and self.current_copy() else (
+                ' · copy made on START' if self.app_path else '')
+            self.summary.config(text=text + copy, foreground='black' if self.app_path else BAD)
         self.show_connected()
 
     def show_connected(self, found=None):
@@ -240,7 +258,14 @@ class App:
         if hasattr(self, 'bridge_choose'):
             self.set_bridge(self.bridge.path if self.bridge else None)   # greys the bridge out for a non-MK1
         self.show_summary()
-        if not self.app_path:
+        if self.software_key() == 'm2':
+            if not os.path.isdir(MASCHINE2_APP):
+                self.tell('Maschine 2 was not found. Install it with Native Access, or choose Maschine 3.', BAD)
+            elif self.model_key() in NEEDS_BRIDGE and not self.bridge:
+                self.tell('The MK1 bridge was not found. Open Options to choose it.', BAD)
+            else:
+                self.tell('Press START. Maschine 2 needs no patch: it runs as installed.', GREY)
+        elif not self.app_path:
             self.tell('Maschine 3 was not found. Open Options to choose it.', BAD)
         elif self.model_key() in NEEDS_BRIDGE and not self.bridge:
             self.tell('The MK1 bridge was not found. Open Options to choose it.', BAD)
@@ -364,13 +389,15 @@ class App:
 
     # --- START, stop, clean --------------------------------------------------------------------------------------
     def start(self):
-        if not self.app_path or (self.model_key() in NEEDS_BRIDGE and not self.bridge):
+        m2 = self.software_key() == 'm2'
+        if (not m2 and not self.app_path) or (m2 and not os.path.isdir(MASCHINE2_APP)) or \
+                (self.model_key() in NEEDS_BRIDGE and not self.bridge):
             self.idle()
             return
         stop_mk1d = False
         if B.mk1d_running() and not B.bridge_running():
             if not messagebox.askyesno('MK1 in use', 'The mk1-controller daemon is using the MK1.\n\n'
-                                                     'Stop it so Maschine 3 can use the MK1?'):
+                                                     'Stop it so Maschine can use the MK1?'):
                 return
             stop_mk1d = True
         self.start_button.state(['disabled'])
@@ -381,7 +408,7 @@ class App:
 
         def job():
             log = []
-            copy = self.current_copy()
+            copy = MASCHINE2_APP if m2 else self.current_copy()
             if not copy:
                 step('Checking Maschine 3…')
                 version, _, plan = P.check(app, model)
@@ -404,7 +431,7 @@ class App:
                 else:
                     log.append('NIHardwareAgent is running.')
             globals()['log'](' / '.join(log))
-            step('Opening Maschine 3…')
+            step('Opening %s…' % ('Maschine 2' if m2 else 'Maschine 3'))
             subprocess.run(['open', copy])
             log.append('Opened %s' % copy)
             return copy, log
@@ -416,9 +443,10 @@ class App:
                 self.root.after(0, lambda: (self.tell('✗  Could not start: %s\nYour original Maschine 3 was not '
                                                       'changed.' % e, BAD), self.start_button.state(['!disabled'])))
                 return
-            done = ('✓  Running. Maschine 3 connects to the MK1 after its plugin scan.\n'
-                    'Quit Maschine 3 when you are done: the bridge stops by itself.' if model in NEEDS_BRIDGE else
-                    '✓  Running (BETA). Maschine 3 connects to the MK2 through NI\'s own agent after its plugin scan.\n'
+            name = 'Maschine 2' if m2 else 'Maschine 3'
+            done = ('✓  Running. %s connects to the MK1 after its plugin scan.\n'
+                    'Quit %s when you are done: the bridge stops by itself.' % (name, name) if model in NEEDS_BRIDGE else
+                    '✓  Running (BETA). Maschine connects to the MK2 through NI\'s own agent after its plugin scan.\n'
                     'Please tell us what works: screens, pads, buttons, knobs. A Maschine Jam does not work meanwhile.')
             self.root.after(0, lambda: (self.set_dest(self.dest_path),
                                         self.set_bridge(self.bridge.path) if self.bridge else None, self.note(log),
@@ -442,10 +470,10 @@ class App:
             if model not in NEEDS_BRIDGE:
                 log('watch: Maschine 3 quit (%s: no bridge to stop)' % model)
                 self.root.after(0, lambda: (self.start_button.state(['!disabled']),
-                                            self.tell('Maschine 3 has quit. Press START to play again.', GREY)))
+                                            self.tell('Maschine has quit. Press START to play again.', GREY)))
                 return
             log('watch: Maschine 3 quit; stopping the bridge')
-            self.root.after(0, lambda: self.tell('Maschine 3 has quit: stopping the bridge…', GREY))
+            self.root.after(0, lambda: self.tell('Maschine has quit: stopping the bridge…', GREY))
             out = self.bridge.stop() if self.bridge else []
             log('watch: %s' % out)
         except Exception as e:  # noqa: BLE001 -- never leave START greyed out silently
@@ -453,7 +481,7 @@ class App:
             out = ['Could not stop the bridge: %s' % e]
         self.root.after(0, lambda: (self.set_bridge(self.bridge.path) if self.bridge else None, self.note(out),
                                     self.start_button.state(['!disabled']),
-                                    self.tell('Maschine 3 has quit, so the bridge was stopped.\n'
+                                    self.tell('Maschine has quit, so the bridge was stopped.\n'
                                               'Press START to play again.', GREY)))
 
     def stop_bridge(self):
