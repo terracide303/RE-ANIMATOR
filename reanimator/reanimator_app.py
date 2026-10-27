@@ -31,7 +31,7 @@ MODEL_NAMES = {'mk1': 'Maschine MK1', 'mk2': 'Maschine MK2 (beta)'}
 # The MK1 needs the MK1 Revive bridge; the MK2 is driven by NI's own NIHardwareAgent, which still has its class.
 NEEDS_BRIDGE = {'mk1'}
 # The software to run: Maschine 3 (a patched copy) or Maschine 2 (as installed: it still knows the MK1 and MK2)
-SOFTWARE_NAMES = {'m3': 'Maschine 3', 'm2': 'Maschine 2 (no patch)'}
+SOFTWARE_NAMES = {'m3': 'Maschine 3', 'm2': 'Maschine 2'}
 MASCHINE2_APP = '/Applications/Native Instruments/Maschine 2/Maschine 2.app'
 USB_IDS = {0x0808: 'mk1', 0x1140: 'mk2'}            # Native Instruments (vendor 0x17CC) product IDs
 
@@ -264,7 +264,7 @@ class App:
             elif self.model_key() in NEEDS_BRIDGE and not self.bridge:
                 self.tell('The MK1 bridge was not found. Open Options to choose it.', BAD)
             else:
-                self.tell('Press START. Maschine 2 needs no patch: it runs as installed.', GREY)
+                self.tell('Press START.', GREY)
         elif not self.app_path:
             self.tell('Maschine 3 was not found. Open Options to choose it.', BAD)
         elif self.model_key() in NEEDS_BRIDGE and not self.bridge:

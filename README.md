@@ -46,7 +46,7 @@ changes as for the MK1), makes sure NI's agent runs, and opens the copy.
 
 ## Maschine 2 (beta)
 
-Maschine 2 still knows the MK1 and the MK2, so it needs **no patch**. Choose **Software: Maschine 2 (no patch)** on
+Maschine 2 still knows the MK1 and the MK2, so it needs **no patch**. Choose **Software: Maschine 2** on
 the main screen and press START: for the MK1 RE-ANIMATOR starts the bridge and opens Maschine 2 as installed, and
 stops the bridge when you quit it; the MK2 runs on NI's own agent, as NI made it.
 
