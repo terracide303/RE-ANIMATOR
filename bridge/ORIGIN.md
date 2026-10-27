@@ -55,4 +55,10 @@ Build: `./build.sh` here, or RE-ANIMATOR's own `../build.sh`, which builds it an
 * **2026-10-27 · An Amiga-style sine scroller** runs under the glowing logos over both screens: what RE-ANIMATOR is,
   how it keeps gear out of the e-waste and brings it back to Maschine 3 and 2, and greetings to andy83 and oskarmust.
   It carries on from one stretch of logos to the next (13.2 s each now); one round of the file is about 49 s.
+* **2026-10-27 · The scroller is slow and drawn by the bridge (file format RANIM2).** At 4 px a frame the MK1's slow
+  LCD turned the text into a blur; it now moves 1 px a frame at one steady brightness on a slow wave. Drawn into
+  frames, that made the file 35 MB, so `reanimator.anim` now holds the intro, ONE 4.4 s logo loop and the scenes, plus
+  a playlist (frames, how long, scroller, fade in/out) and the text as one strip; the bridge repeats the logo loop
+  until the text has left the screen, draws the text on the sine wave per column, and fades (`anim_play_frame`).
+  1.5 MB; one round about 3.5 minutes. RANIM1 files still play as before.
 

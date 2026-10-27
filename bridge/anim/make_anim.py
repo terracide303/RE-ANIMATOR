@@ -203,11 +203,11 @@ def scene_lab(c, t):
     return None
 
 
-SCROLL_TEXT = ("*** RE-ANIMATOR ***   OLD CONTROLLERS, NEW LIFE   ***   THIS MASCHINE IS NOT E-WASTE: ITS MAKER "
-               "STOPPED SUPPORTING IT, RE-ANIMATOR WAKES IT UP AGAIN   ***   MASCHINE 3 AND 2 - SCREENS, PADS, KNOBS "
-               "AND LIGHTS ALL BACK   ***   KEEP YOUR GEAR, KEEP MAKING MUSIC   ***   GREETINGS TO ANDY83 AND "
-               "OSKARMUST   ***          ")
-SCROLL_SPEED = 80             # pixels a second: 4 a frame, the speed of an Amiga intro's scroller
+SCROLL_TEXT = ("*** RE-ANIMATOR ***   OLD CONTROLLERS, NEW LIFE   ***   YOUR MASCHINE IS NOT E-WASTE   ***   "
+               "SCREENS, PADS, KNOBS AND LIGHTS BACK IN MASCHINE 3 AND 2   ***   GREETINGS TO ANDY83 AND OSKARMUST   ***")
+SCROLL_SPEED = 20             # pixels a second: ONE a frame. The MK1's LCD is slow; at 4 a frame (an Amiga's speed) the
+                              # letters smeared into a blur (Dennis, 2026-10-27)
+FADE_SECS = 2.0               # the logos and the scroller fade to black; the next scene fades in from black
 
 
 def sine_scroller(canvas, st, font):
@@ -216,12 +216,11 @@ def sine_scroller(canvas, st, font):
     d = ImageDraw.Draw(canvas)
     widths = [d.textlength(ch, font=font) for ch in SCROLL_TEXT]
     total = sum(widths)
-    x = 2 * W - (st * SCROLL_SPEED) % (total + 2 * W)          # it enters from the right and runs out on the left
+    x = 2 * W - st * SCROLL_SPEED                               # enters on the right, runs out on the left, once
     for ch, w in zip(SCROLL_TEXT, widths):
         if -w < x < 2 * W and ch != " ":
-            y = 46 + 6 * math.sin(x / 26 + st * 4)
-            shade = int(22 + 9 * (0.5 + 0.5 * math.sin(x / 40 - st * 6)))
-            d.text((x, y - 8), ch, font=font, fill=g(shade))
+            y = 46 + 5 * math.sin(x / 30 + st * 1.2)                # a slow wave: fast movement smears on this LCD
+            d.text((round(x), round(y) - 8), ch, font=font, fill=g(31))   # one steady brightness: no shimmer
         x += w
 
 
@@ -247,7 +246,13 @@ TINY = ImageFont.truetype(FONT, 8, index=8)
 BIG2 = ImageFont.truetype(FONT, 26, index=8)
 SCROLL_FONT = ImageFont.truetype(FONT, 12, index=0)
 mid = ImageFont.truetype(FONT, 24, index=0)   # Bold, not Heavy: at this size Heavy closed the E's gaps
-total = 9.0 + sum(secs for _, secs in SEGMENTS)   # the intro, then the logos between every scene
+# What the file stores: the intro, ONE loop of the logos (4.4 s: drips and glow both repeat exactly in it) and the
+# scenes. The bridge plays them by the playlist written below: the logo loop repeats until the scroller -- which the
+# bridge draws itself, one pixel a frame on a sine wave -- has left the screen, then it fades. Drawing the slow scroller
+# into frames made the file 35 MB.
+GLOW_SECS = LOOP_SECS
+SEGMENTS = [("logos", LOOP_SECS), ("rufus", SCENE_SECS["rufus"]), ("lab", SCENE_SECS["lab"])]
+total = 9.0 + sum(secs for _, secs in SEGMENTS)
 for f in range(int(total * FPS)):
     t = f / FPS
     a, b, da, db = screens()
@@ -334,8 +339,7 @@ for f in range(int(total * FPS)):
                 glow = 0.5 + 0.5 * math.cos(2 * math.pi * v / GLOW_SECS)          # 1 -> 0 -> 1: starts as bright as the intro ends
                 for cx in (W / 2, W * 1.5):
                     living_logo(dc, int(cx - small_w / 2), "RE-ANIMATOR", mid, v, int(14 + 17 * glow))
-                sine_scroller(canvas, scrolled + v, SCROLL_FONT)    # under the logos, over both screens
-                dc = ImageDraw.Draw(canvas)
+                dc = ImageDraw.Draw(canvas)       # (the scroller and the fade are the bridge's: see the playlist)
             else:
                 canvas = Image.new("L", (2 * W, H), 0)
                 fx = {"rufus": scene_rufus, "lab": scene_lab}[seg](canvas, v)
@@ -354,7 +358,27 @@ for f in range(int(total * FPS)):
     out = Image.new("L", (2 * W + 30, H + 20), g(4))
     out.paste(a, (10, 10)); out.paste(b, (W + 20, 10))
     frames.append(out.resize((out.width * 3, out.height * 3), Image.NEAREST).convert("P"))
-LOOP_START = int(9.0 * FPS)   # (the bridge plays the whole file in a loop now; see main.c)
+LOOP_START = int(9.0 * FPS)
+F_INTRO = (0, int(9.0 * FPS) - 1)
+F_LOGOS = (F_INTRO[1] + 1, F_INTRO[1] + int(LOOP_SECS * FPS))
+F_RUFUS = (F_LOGOS[1] + 1, F_LOGOS[1] + int(SCENE_SECS["rufus"] * FPS))
+F_LAB = (F_RUFUS[1] + 1, F_RUFUS[1] + int(SCENE_SECS["lab"] * FPS))
+assert F_LAB[1] + 1 == len(raw), (F_LAB, len(raw))
+
+# the scroller: one strip of text, drawn by the bridge on a sine wave, ONE pixel a frame (the MK1's LCD is slow)
+strip = Image.new("L", (int(ImageDraw.Draw(Image.new("L", (1, 1))).textlength(SCROLL_TEXT, font=SCROLL_FONT)) + 4, 18), 0)
+ImageDraw.Draw(strip).text((0, 0), SCROLL_TEXT, font=SCROLL_FONT, fill=g(31))
+strip = strip.crop((0, 0, strip.width, strip.getbbox()[3] + 1))
+SCROLL = dict(speed=1, base=46, amp=5, wavelen=30, wave_mrad=60, yoff=-8)    # px/frame, px, px, px, mrad/frame, px
+FADE = int(FADE_SECS * FPS)
+scroll_frames = strip.width + 2 * W                           # until the last letter has left the left edge
+logos_len = scroll_frames + FADE
+# playlist: (first, last, frames to play, flags) -- flags: 1 scroller, 2 fade in, 4 fade out
+PLAYLIST = [(F_INTRO[0], F_INTRO[1], F_INTRO[1] - F_INTRO[0] + 1, 0),
+            (F_LOGOS[0], F_LOGOS[1], logos_len, 1 | 4),
+            (F_RUFUS[0], F_RUFUS[1], F_RUFUS[1] - F_RUFUS[0] + 1, 2),
+            (F_LOGOS[0], F_LOGOS[1], logos_len, 1 | 2 | 4),
+            (F_LAB[0], F_LAB[1], F_LAB[1] - F_LAB[0] + 1, 2)]
 
 
 def rle(img):
@@ -370,15 +394,53 @@ def rle(img):
     return bytes(out)
 
 
+def play(item_frame_hook=None):
+    """the playlist as the bridge plays it: (left, right) images, scroller and fades applied -- for the preview"""
+    for first, last, n, flags in PLAYLIST:
+        for k in range(n):
+            a, b = raw[first + k % (last - first + 1)]
+            if flags & 1:
+                c = Image.new("L", (2 * W, H)); c.paste(a, (0, 0)); c.paste(b, (W, 0))
+                px = c.load(); sp = strip.load()
+                x0 = 2 * W - k * SCROLL["speed"]
+                for col in range(strip.width):
+                    X = x0 + col
+                    if 0 <= X < 2 * W:
+                        y = round(SCROLL["base"] + SCROLL["amp"] * math.sin(X / SCROLL["wavelen"] + k * SCROLL["wave_mrad"] / 1000))
+                        for r in range(strip.height):
+                            if sp[col, r] and 0 <= y + SCROLL["yoff"] + r < H:
+                                px[X, y + SCROLL["yoff"] + r] = sp[col, r]
+                a, b = c.crop((0, 0, W, H)), c.crop((W, 0, 2 * W, H))
+            f = 1.0
+            if flags & 2 and k < FADE: f = min(f, k / FADE)
+            if flags & 4 and n - k <= FADE: f = min(f, (n - k) / FADE)
+            if f < 1.0:
+                a = Image.eval(a, lambda p, f=f: int(p * f)); b = Image.eval(b, lambda p, f=f: int(p * f))
+            yield a, b
+
+
 out = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else "reanimator.anim"
 with open(out, "wb") as f:
-    f.write(b"RANIM1\0\0" + struct.pack("<HHHHH", W, H, FPS, len(raw), LOOP_START))
+    f.write(b"RANIM2\0\0" + struct.pack("<HHHHH", W, H, FPS, len(raw), LOOP_START))
     for a, b in raw:
         for scr in (a, b):
             data = rle(scr)
             f.write(struct.pack("<I", len(data)) + data)
-print(f"{out}: {len(raw)} frames at {FPS} fps, loop from {LOOP_START}")
-if "--gif" in sys.argv:
+    f.write(b"PLAY" + struct.pack("<H", len(PLAYLIST)))
+    for first, last, n, flags in PLAYLIST:
+        f.write(struct.pack("<HHIBB", first, last, n, flags, 0))
+    data = rle(strip)
+    f.write(b"SCRL" + struct.pack("<HHBBBBhhH", strip.width, strip.height, SCROLL["speed"], SCROLL["base"],
+                                  SCROLL["amp"], SCROLL["wavelen"], SCROLL["wave_mrad"], SCROLL["yoff"], FADE))
+    f.write(struct.pack("<I", len(data)) + data)
+print(f"{out}: {len(raw)} frames at {FPS} fps; playlist {[(p[0], p[1], p[2], p[3]) for p in PLAYLIST]}; "
+      f"one round {sum(p[2] for p in PLAYLIST) / FPS:.0f} s; strip {strip.width}x{strip.height}")
+if "--gif" in sys.argv:                                      # every other frame, so the preview stays small
     p = sys.argv[sys.argv.index("--gif") + 1]
-    frames[0].save(p, save_all=True, append_images=frames[1:], duration=int(1000 / FPS), loop=0, optimize=True)
+    pics = []
+    for n, (a, b) in enumerate(play()):
+        if n % 2: continue
+        o = Image.new("L", (2 * W + 30, H + 20), g(4)); o.paste(a, (10, 10)); o.paste(b, (W + 20, 10))
+        pics.append(o.resize((o.width * 2, o.height * 2), Image.NEAREST).convert("P"))
+    pics[0].save(p, save_all=True, append_images=pics[1:], duration=int(2000 / FPS), loop=0, optimize=True)
     print(p)

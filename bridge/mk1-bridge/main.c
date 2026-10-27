@@ -1181,6 +1181,14 @@ typedef struct {
     size_t   size;
     uint32_t *off;          // per frame and screen: where its RLE data starts, and (next entry) where it ends
     uint32_t *len;
+    // RANIM2: a playlist (which frames, how many frames to play, scroller and fades) and the scroller's text strip
+    int       n_items;
+    struct { uint16_t first, last; uint32_t frames; uint8_t flags; } items[16];   // flags: 1 scroller, 2 fade in, 4 fade out
+    uint16_t  sw, sh;          // strip size
+    uint8_t  *strip;           // sw*sh grey values (0..31)
+    uint8_t   s_speed, s_base, s_amp, s_wavelen;
+    int16_t   s_wave_mrad, s_yoff;
+    uint16_t  fade;            // frames
 } reanimator_anim_t;
 static reanimator_anim_t g_anim;
 #define REANIM_REPLAY_SECS 30   // while it waits for Maschine, the whole intro plays again this often
@@ -1205,7 +1213,8 @@ static bool anim_load(void)
     if (!d || fread(d, 1, (size_t)n, f) != (size_t)n) { fclose(f); free(d); BLOG("anim: unreadable"); return false; }
     fclose(f);
     reanimator_anim_t a = {0};
-    if (memcmp(d, "RANIM1", 6) != 0) { free(d); BLOG("anim: not a RANIM1 file"); return false; }
+    bool v2 = memcmp(d, "RANIM2", 6) == 0;
+    if (!v2 && memcmp(d, "RANIM1", 6) != 0) { free(d); BLOG("anim: not a RANIM file"); return false; }
     memcpy(&a.w, d + 8, 2); memcpy(&a.h, d + 10, 2); memcpy(&a.fps, d + 12, 2);
     memcpy(&a.count, d + 14, 2); memcpy(&a.loop, d + 16, 2);
     if (a.w != 255 || a.h != 64 || !a.fps || a.fps > 60 || !a.count || a.loop >= a.count) {
@@ -1224,12 +1233,94 @@ static bool anim_load(void)
         a.len[i] = len;
         pos += len;
     }
+    if (v2 && pos <= (size_t)n) {
+        // "PLAY" n, n x (first u16, last u16, frames u32, flags u8, pad u8); "SCRL" w h speed base amp wavelen
+        // wave_mrad(i16) yoff(i16) fade(u16), then the strip's RLE (u32 length + pairs)
+        bool ok = pos + 6 <= (size_t)n && memcmp(d + pos, "PLAY", 4) == 0;
+        uint16_t ni = 0;
+        if (ok) { memcpy(&ni, d + pos + 4, 2); pos += 6; ok = ni > 0 && ni <= 16 && pos + (size_t)ni * 10 <= (size_t)n; }
+        for (int k = 0; ok && k < ni; k++) {
+            memcpy(&a.items[k].first, d + pos, 2); memcpy(&a.items[k].last, d + pos + 2, 2);
+            memcpy(&a.items[k].frames, d + pos + 4, 4); a.items[k].flags = d[pos + 8];
+            pos += 10;
+            ok = a.items[k].first <= a.items[k].last && a.items[k].last < a.count && a.items[k].frames > 0;
+        }
+        a.n_items = ok ? ni : 0;
+        ok = ok && pos + 18 <= (size_t)n && memcmp(d + pos, "SCRL", 4) == 0;
+        if (ok) {
+            memcpy(&a.sw, d + pos + 4, 2); memcpy(&a.sh, d + pos + 6, 2);
+            a.s_speed = d[pos + 8]; a.s_base = d[pos + 9]; a.s_amp = d[pos + 10]; a.s_wavelen = d[pos + 11];
+            memcpy(&a.s_wave_mrad, d + pos + 12, 2); memcpy(&a.s_yoff, d + pos + 14, 2); memcpy(&a.fade, d + pos + 16, 2);
+            pos += 18;
+            uint32_t sl = 0;
+            if (pos + 4 <= (size_t)n) { memcpy(&sl, d + pos, 4); pos += 4; }
+            ok = a.sw && a.sh && a.sw < 8000 && a.sh <= 64 && a.s_wavelen && pos + sl == (size_t)n && !(sl & 1);
+            if (ok) {
+                a.strip = calloc((size_t)a.sw * a.sh, 1);
+                size_t px = 0;
+                for (size_t q = pos; q + 1 < pos + sl + 1 && q < pos + sl; q += 2)
+                    for (int r = 0; r < d[q] && px < (size_t)a.sw * a.sh; r++) a.strip[px++] = d[q + 1] & 0x1F;
+                pos += sl;
+            }
+        }
+        if (!ok || !a.n_items) { BLOG("anim: RANIM2 playlist or scroller damaged -- frames only"); a.n_items = 0; pos = (size_t)n; }
+    }
     if (pos != (size_t)n) { free(d); free(a.off); free(a.len); BLOG("anim: truncated or damaged"); return false; }
     a.data = d;
     a.size = (size_t)n;
     g_anim = a;
-    BLOG("anim: %u frames at %u fps, looping from %u (%s)", a.count, a.fps, a.loop, path);
+    BLOG("anim: %u frames at %u fps, %d playlist items, scroller %ux%u (%s)", a.count, a.fps, a.n_items,
+         a.sw, a.sh, path);
     return true;
+}
+
+static void anim_decode(int idx, int screen, uint8_t bmp[64][255])
+{
+    uint8_t *flat = &bmp[0][0];
+    size_t px = 0;
+    const uint8_t *p = g_anim.data + g_anim.off[idx * 2 + screen];
+    const uint8_t *end = p + g_anim.len[idx * 2 + screen];
+    for (; p < end; p += 2)
+        for (int k = 0; k < p[0] && px < 64 * 255; k++) flat[px++] = p[1] & 0x1F;
+    while (px < 64 * 255) flat[px++] = 0;
+}
+
+// One frame of the playlist into both framebuffers: the stored frame, the scroller over both screens (one strip of
+// text on a sine wave, drawn here so a slow scroll costs no frames in the file), and the fade.
+static void anim_play_frame(uint32_t tick, uint8_t *left_fb, uint8_t *right_fb)
+{
+    static uint8_t L[64][255], R[64][255];
+    uint32_t total = 0;
+    for (int k = 0; k < g_anim.n_items; k++) total += g_anim.items[k].frames;
+    uint32_t t = tick % total;
+    int it = 0;
+    while (t >= g_anim.items[it].frames) { t -= g_anim.items[it].frames; it++; }
+    const int first = g_anim.items[it].first, span = g_anim.items[it].last - first + 1;
+    const uint8_t flags = g_anim.items[it].flags;
+    anim_decode(first + (int)(t % (uint32_t)span), 0, L);
+    anim_decode(first + (int)(t % (uint32_t)span), 1, R);
+    if ((flags & 1) && g_anim.strip) {
+        int x0 = 2 * 255 - (int)(t * g_anim.s_speed);
+        for (int col = 0; col < g_anim.sw; col++) {
+            int X = x0 + col;
+            if (X < 0 || X >= 2 * 255) continue;
+            int y = (int)lround(g_anim.s_base + g_anim.s_amp * sin((double)X / g_anim.s_wavelen + t * g_anim.s_wave_mrad / 1000.0));
+            for (int r = 0; r < g_anim.sh; r++) {
+                uint8_t v = g_anim.strip[(size_t)r * g_anim.sw + col];
+                int Y = y + g_anim.s_yoff + r;
+                if (!v || Y < 0 || Y >= 64) continue;
+                if (X < 255) L[Y][X] = v; else R[Y][X - 255] = v;
+            }
+        }
+    }
+    double f = 1.0;
+    if ((flags & 2) && g_anim.fade && t < g_anim.fade) f = (double)t / g_anim.fade;
+    if ((flags & 4) && g_anim.fade && g_anim.items[it].frames - t <= g_anim.fade)
+        f = fmin(f, (double)(g_anim.items[it].frames - t) / g_anim.fade);
+    if (f < 1.0)
+        for (int y = 0; y < 64; y++) for (int x = 0; x < 255; x++) { L[y][x] = (uint8_t)(L[y][x] * f); R[y][x] = (uint8_t)(R[y][x] * f); }
+    bmp_pack_st7529(left_fb, L);
+    bmp_pack_st7529(right_fb, R);
 }
 
 static void anim_frame_fb(int idx, int screen, uint8_t *fb)
@@ -1278,8 +1369,12 @@ static void start_cat_animation(bridge_t *br)
             int i = g_cat_anim_frame++ % cycle;
             if (i >= g_anim.loop) i = g_anim.loop + (i - g_anim.loop) % (g_anim.count - g_anim.loop);
             uint8_t left_fb[DISPLAY_FB_BYTES], right_fb[DISPLAY_FB_BYTES];
-            anim_frame_fb(i, 0, left_fb);
-            anim_frame_fb(i, 1, right_fb);
+            if (g_anim.n_items) {
+                anim_play_frame((uint32_t)g_cat_anim_frame - 1, left_fb, right_fb);   // RANIM2: the playlist
+            } else {
+                anim_frame_fb(i, 0, left_fb);
+                anim_frame_fb(i, 1, right_fb);
+            }
             send_fb_to_display(br, 0x00, left_fb);
             send_fb_to_display(br, 0x02, right_fb);
         });
