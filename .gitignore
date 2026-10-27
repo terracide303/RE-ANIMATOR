@@ -4,6 +4,7 @@
 !/.gitignore
 !/README.md
 !/build.sh
+!/.github/
 !/reanimator/
 /reanimator/*
 !/reanimator/reanimator_app.py
