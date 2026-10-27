@@ -99,8 +99,8 @@ class App:
         banner = Image.open(os.path.join(assets, 'banner.png'))                 # our own (design/reanimator-cover.png)
         self.images['banner'] = ImageTk.PhotoImage(banner.resize((520, int(520 * banner.height / banner.width))))
         ttk.Label(f, image=self.images['banner']).grid(row=0, column=0, sticky='w')
-        ttk.Label(f, text='Version %s. Runs Maschine 3 on your older controller. Your original Maschine 3 stays exactly '
-                          'as it is.' % VERSION,
+        ttk.Label(f, text='Version %s. Runs Maschine 3 and Maschine 2 on your older controller. Your installed Maschine '
+                          'stays exactly as it is.' % VERSION,
                   foreground=GREY).grid(row=1, column=0, sticky='w', pady=(0, 16))
         if 'right-to-repair' in self.images:
             ttk.Label(f, image=self.images['right-to-repair']).grid(row=0, column=1, rowspan=3, sticky='ne', padx=(12, 0))
